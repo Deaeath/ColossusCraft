@@ -56,6 +56,10 @@ public final class BaritoneAutoEat {
     private static InteractionHand eatingHand = InteractionHand.MAIN_HAND;
     private static int eatTicks;
     private static int expectedEatTicks;
+    private static int startFoodLevel;
+    private static float startSaturationLevel;
+    private static int startStackCount;
+    private static int notUsingTicks;
 
     public BaritoneAutoEat(IEventBus modBus) {
         NeoForge.EVENT_BUS.addListener(BaritoneAutoEat::registerCommands);
@@ -212,6 +216,10 @@ public final class BaritoneAutoEat {
         eatingHand = InteractionHand.MAIN_HAND;
         eatTicks = 0;
         expectedEatTicks = foodUseTicks(stack, player);
+        startFoodLevel = player.getFoodData().getFoodLevel();
+        startSaturationLevel = player.getFoodData().getSaturationLevel();
+        startStackCount = stack.getCount();
+        notUsingTicks = 0;
         mc.options.keyUse.setDown(true);
         useHeld = true;
         mc.gameMode.useItem(player, InteractionHand.MAIN_HAND);
@@ -251,7 +259,12 @@ public final class BaritoneAutoEat {
         originalSlot = hand == InteractionHand.MAIN_HAND ? player.getInventory().selected : -1;
         swappedInventorySlot = -1;
         eatTicks = 0;
-        expectedEatTicks = foodUseTicks(player.getItemInHand(hand), player);
+        ItemStack stack = player.getItemInHand(hand);
+        expectedEatTicks = foodUseTicks(stack, player);
+        startFoodLevel = player.getFoodData().getFoodLevel();
+        startSaturationLevel = player.getFoodData().getSaturationLevel();
+        startStackCount = stack.getCount();
+        notUsingTicks = 0;
         mc.options.keyUse.setDown(true);
         useHeld = true;
         mc.gameMode.useItem(player, hand);
@@ -259,32 +272,43 @@ public final class BaritoneAutoEat {
 
     private static void continueEating(Minecraft mc, LocalPlayer player) {
         eatTicks++;
+        mc.options.keyAttack.setDown(false);
         if (!useHeld) {
             mc.options.keyUse.setDown(true);
             useHeld = true;
         }
 
-        ItemStack using = player.getUseItem();
-        boolean stillEating = player.isUsingItem() && isFood(using);
-        if (stillEating && eatTicks <= expectedEatTicks + 10) {
+        ItemStack held = player.getItemInHand(eatingHand);
+        boolean consumed = player.getFoodData().getFoodLevel() > startFoodLevel
+                || player.getFoodData().getSaturationLevel() > startSaturationLevel + 0.01F
+                || (startStackCount > 0 && held.getCount() < startStackCount);
+        if (consumed) {
+            stopEating(mc, true, false);
+            cooldownTicks = 10;
             return;
         }
 
-        if (stillEating) {
+        if (!isFood(held)) {
             stopEating(mc, true, true);
             cooldownTicks = 20;
             return;
         }
 
-        if (eatTicks < 6) {
-            if (eatTicks == 3 && mc.gameMode != null) {
+        boolean stillEating = player.isUsingItem() && isFood(player.getUseItem());
+        if (stillEating) {
+            notUsingTicks = 0;
+        } else {
+            notUsingTicks++;
+            if (notUsingTicks >= 8 && mc.gameMode != null) {
                 mc.gameMode.useItem(player, eatingHand);
+                notUsingTicks = 0;
             }
-            return;
         }
 
-        stopEating(mc, true, false);
-        cooldownTicks = player.getFoodData().getFoodLevel() <= threshold && player.canEat(false) ? 4 : 10;
+        if (eatTicks > expectedEatTicks + 40) {
+            stopEating(mc, true, true);
+            cooldownTicks = 40;
+        }
     }
 
     private static void stopEating(Minecraft mc, boolean restore, boolean cancelUse) {
@@ -311,6 +335,10 @@ public final class BaritoneAutoEat {
         eating = false;
         eatTicks = 0;
         expectedEatTicks = 0;
+        startFoodLevel = 0;
+        startSaturationLevel = 0.0F;
+        startStackCount = 0;
+        notUsingTicks = 0;
         originalSlot = -1;
         swappedInventorySlot = -1;
         eatingHand = InteractionHand.MAIN_HAND;
