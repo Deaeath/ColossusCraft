@@ -14,18 +14,6 @@ version="1.2.3"
 displayName="PvE Guard"
 description="Client-side PvE hostile guard."
 
-[[mods]]
-modId="altoclef"
-version="1.2.4"
-displayName="AltoClef NeoForge Port"
-description="Client-side AltoClef core port for NeoForge/MojMap."
-
-[[mods]]
-modId="altoclef_atm10"
-version="1.2.4"
-displayName="AltoClef ATM10 Addon"
-description="ATM10 Star planner, FTB Quests helper, and Baritone gather driver built on AltoClef."
-
 [[dependencies.baritoneautoeat]]
 modId="neoforge"
 type="required"
@@ -52,67 +40,4 @@ modId="minecraft"
 type="required"
 versionRange="[1.21.1,1.22)"
 ordering="NONE"
-side="CLIENT"
-
-[[dependencies.altoclef]]
-modId="neoforge"
-type="required"
-versionRange="[21.1,)"
-ordering="NONE"
-side="CLIENT"
-
-[[dependencies.altoclef]]
-modId="minecraft"
-type="required"
-versionRange="[1.21.1,1.22)"
-ordering="NONE"
-side="CLIENT"
-
-[[dependencies.altoclef]]
-modId="architectury"
-type="required"
-versionRange="[13.0,)"
-ordering="AFTER"
-side="CLIENT"
-
-[[dependencies.altoclef]]
-modId="baritoe"
-type="optional"
-versionRange="[1.11,)"
-ordering="AFTER"
-side="CLIENT"
-
-[[dependencies.altoclef_atm10]]
-modId="neoforge"
-type="required"
-versionRange="[21.1,)"
-ordering="NONE"
-side="CLIENT"
-
-[[dependencies.altoclef_atm10]]
-modId="minecraft"
-type="required"
-versionRange="[1.21.1,1.22)"
-ordering="NONE"
-side="CLIENT"
-
-[[dependencies.altoclef_atm10]]
-modId="altoclef"
-type="required"
-versionRange="[1.2.4,)"
-ordering="AFTER"
-side="CLIENT"
-
-[[dependencies.altoclef_atm10]]
-modId="ftbquests"
-type="required"
-versionRange="[2101.1,)"
-ordering="AFTER"
-side="CLIENT"
-
-[[dependencies.altoclef_atm10]]
-modId="baritoe"
-type="optional"
-versionRange="[1.11,)"
-ordering="AFTER"
 side="CLIENT"

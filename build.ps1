@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$ToolsVersion = "1.3.4"
+$ToolsVersion = "1.0.1"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Prism = Join-Path $env:APPDATA "PrismLauncher"
 $Java = Join-Path $Prism "java\java-runtime-delta\bin"
@@ -16,14 +16,6 @@ $ModClasses = Join-Path $Build "modclasses"
 $JarRoot = Join-Path $Build "jarroot"
 $Work = Join-Path $Build "work"
 $TargetClass = "baritone/launch/mixins/MixinItemStack.class"
-
-function FirstModJar($pattern) {
-    $match = Get-ChildItem $Mods -Filter $pattern | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($null -eq $match) {
-        throw "Missing mod jar: $pattern"
-    }
-    return $match.FullName
-}
 
 if (!(Test-Path $Original)) {
     throw "Missing original jar: $Original"
@@ -65,18 +57,6 @@ $ModClasspath = @(
     Join-Path $Prism "libraries\net\neoforged\mergetool\2.0.0\mergetool-2.0.0-api.jar"
     Join-Path $Prism "libraries\com\mojang\brigadier\1.3.10\brigadier-1.3.10.jar"
     Join-Path $Prism "libraries\com\mojang\datafixerupper\8.0.16\datafixerupper-8.0.16.jar"
-    Join-Path $Prism "libraries\it\unimi\dsi\fastutil\8.5.15\fastutil-8.5.15.jar"
-    Join-Path $Prism "libraries\com\google\guava\guava\33.3.1-jre\guava-33.3.1-jre.jar"
-    Join-Path $Prism "libraries\io\netty\netty-common\4.1.118.Final\netty-common-4.1.118.Final.jar"
-    Join-Path $Prism "libraries\io\netty\netty-buffer\4.1.118.Final\netty-buffer-4.1.118.Final.jar"
-    Join-Path $Prism "libraries\io\netty\netty-transport\4.1.118.Final\netty-transport-4.1.118.Final.jar"
-    Join-Path $Prism "libraries\com\fasterxml\jackson\core\jackson-core\2.13.4\jackson-core-2.13.4.jar"
-    Join-Path $Prism "libraries\com\fasterxml\jackson\core\jackson-annotations\2.13.4\jackson-annotations-2.13.4.jar"
-    Join-Path $Prism "libraries\com\fasterxml\jackson\core\jackson-databind\2.13.4.2\jackson-databind-2.13.4.2.jar"
-    FirstModJar "architectury-*-neoforge.jar"
-    FirstModJar "ftb-library-neoforge-*.jar"
-    FirstModJar "ftb-teams-neoforge-*.jar"
-    FirstModJar "ftb-quests-neoforge-*.jar"
 ) -join ";"
 
 $Sources = Get-ChildItem -Path (Join-Path $Root "src\main\java") -Recurse -Filter "*.java" | ForEach-Object { $_.FullName }
@@ -84,14 +64,6 @@ $Sources = Get-ChildItem -Path (Join-Path $Root "src\main\java") -Recurse -Filte
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Copy-Item -Recurse -Force (Join-Path $ModClasses "*") $JarRoot
-$JacksonCore = Join-Path $Prism "libraries\com\fasterxml\jackson\core\jackson-core\2.13.4\jackson-core-2.13.4.jar"
-$JacksonAnnotations = Join-Path $Prism "libraries\com\fasterxml\jackson\core\jackson-annotations\2.13.4\jackson-annotations-2.13.4.jar"
-$JacksonDatabind = Join-Path $Prism "libraries\com\fasterxml\jackson\core\jackson-databind\2.13.4.2\jackson-databind-2.13.4.2.jar"
-Push-Location $JarRoot
-& (Join-Path $Java "jar.exe") xf $JacksonCore
-& (Join-Path $Java "jar.exe") xf $JacksonAnnotations
-& (Join-Path $Java "jar.exe") xf $JacksonDatabind
-Pop-Location
 Copy-Item -Recurse -Force (Join-Path $Root "src\main\resources\*") $JarRoot
 
 Remove-Item -Force $ToolsOutput -ErrorAction SilentlyContinue
