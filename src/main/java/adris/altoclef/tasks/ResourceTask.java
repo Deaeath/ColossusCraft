@@ -80,6 +80,14 @@ public abstract class ResourceTask extends Task {
         return this;
     }
 
+    protected boolean isInWrongDimension(AltoClef mod) {
+        return forcedDimension != null && WorldHelper.getCurrentDimension() != forcedDimension;
+    }
+
+    protected Task getToCorrectDimensionTask(AltoClef mod) {
+        return forcedDimension == null ? null : new DefaultGoToDimensionTask(forcedDimension);
+    }
+
     protected boolean shouldAvoidPickingUp(AltoClef mod) {
         return false;
     }

@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+    id 'net.neoforged.moddev' version '2.0.72'
+}
+
+group = 'com.colossuscraft'
+version = '1.0.1'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://blamejared.com' }
+    flatDir {
+        dir "C:/Users/Power User/AppData/Roaming/PrismLauncher/instances/All the Mods 10 - ATM10/minecraft/mods"
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: "C:/Users/Power User/AppData/Roaming/PrismLauncher/instances/All the Mods 10 - ATM10/minecraft/mods", include: ["*.jar", "*.jar.disabled"])
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.17.1'
+}
+
+neoForge {
+    version = '21.1.228'
+    mods {
+        colossuscraft_core {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+// ULTIMATE FINALIZE STEP: Purges the dead trailing "result;" expression string to clear the final error
+tasks.register('fixMinecraftImports') {
+    doLast {
+        println "Cleaning up dead trailing expressions..."
+        fileTree(dir: 'src/main/java', include: '**/*.java').each { File javaFile ->
+            def text = javaFile.text
+            def originalText = text
+            
+            // Delete the dead statement line cleanly (including leading indentation/spaces)
+            text = text.replaceAll(/(?m)^\s*result;\s*$/, '')
+            
+            if (text != originalText) {
+                javaFile.text = text
+                println "✅ Cleaned up standalone statement inside: ${javaFile.name}"
+            }
+        }
+    }
+}

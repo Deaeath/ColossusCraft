@@ -12,6 +12,11 @@ public class KillEntitiesTask extends Task {
     private final Predicate<Entity> accept;
     private final Class<? extends Entity>[] entityClasses;
 
+    // Lock onto one target until it's dead/gone, so we don't flip-flop between two nearby mobs
+    // (which would restart the attack every tick = analysis paralysis).
+    private Entity _target;
+    private KillEntityTask _killTask;
+
     @SafeVarargs
     public KillEntitiesTask(Class<? extends Entity>... entityClasses) {
         this(entity -> true, entityClasses);
@@ -27,14 +32,24 @@ public class KillEntitiesTask extends Task {
     protected void onStart(AltoClef mod) {
     }
 
+    private boolean valid(AltoClef mod, Entity e) {
+        if (e == null || !e.isAlive() || e.isRemoved() || !accept.test(e)) return false;
+        if (!mod.getEntityTracker().isEntityReachable(e)) return false; // gave up on this one
+        return entityClasses.length == 0 || Arrays.stream(entityClasses).anyMatch(type -> type.isInstance(e));
+    }
+
     @Override
     protected Task onTick(AltoClef mod) {
-        Entity target = nearest(mod);
-        if (target == null) {
+        if (!valid(mod, _target)) {
+            _target = nearest(mod);
+            _killTask = _target == null ? null : new KillEntityTask(_target);
+        }
+        if (_target == null) {
             setDebugState("No entity");
             return null;
         }
-        return new KillEntityTask(target);
+        setDebugState("Killing " + _target.getType().getDescriptionId());
+        return _killTask;
     }
 
     private Entity nearest(AltoClef mod) {
@@ -42,8 +57,7 @@ public class KillEntitiesTask extends Task {
         Entity best = null;
         double bestDist = Double.POSITIVE_INFINITY;
         for (Entity entity : Minecraft.getInstance().level.entitiesForRendering()) {
-            if (entity == null || !entity.isAlive() || !accept.test(entity)) continue;
-            if (entityClasses.length != 0 && Arrays.stream(entityClasses).noneMatch(type -> type.isInstance(entity))) continue;
+            if (!valid(mod, entity)) continue;
             double dist = entity.distanceToSqr(mod.getPlayer());
             if (dist < bestDist) {
                 best = entity;

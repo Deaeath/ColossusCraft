@@ -3,12 +3,19 @@ package adris.altoclef.tasks.misc;
 import adris.altoclef.AltoClef;
 import adris.altoclef.tasksystem.Task;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.item.Item;
+
+import java.util.List;
 
 public class LootDesertTempleTask extends Task {
     private final BlockPos temple;
 
     public LootDesertTempleTask(BlockPos temple) {
         this.temple = temple;
+    }
+
+    public LootDesertTempleTask(BlockPos temple, List<Item> ignoredLoot) {
+        this(temple);
     }
 
     @Override

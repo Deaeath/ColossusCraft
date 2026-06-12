@@ -1,10 +1,10 @@
-# AltoClef NeoForge Port
+# ColossusCraft Core Port
 
 Source: `https://github.com/gaucho-matrero/altoclef`, branch `1.19.4--marvion`.
 
 Goal order:
 
-1. Port upstream AltoClef core to NeoForge/MojMap 1.21.1.
+1. Port upstream AltoClef-derived core to NeoForge/MojMap 1.21.1.
 2. Boot the upstream command/task/event lifecycle in-game.
 3. Restore Baritone integration against the installed NeoForge Baritone jar.
 4. Restore trackers, slot control, input control, UI, and mixin events.
@@ -24,7 +24,7 @@ Current port status:
 - Ported input controls, player extra controller, slot click handler, item storage tracker, live entity tracker, live block tracker, chunk/misc block trackers.
 - Added user task chain and a first runnable catalogue task (`CollectItemTask`) that can satisfy inventory goals, walk to visible drops, or delegate direct block mining to Baritone.
 - Added common helper/blacklist shims and core-owned NeoForge event hooks for screen opening and block interaction/break start/stop.
-- Added `altoclef` as the core NeoForge mod id and moved ATM10 automation to addon mod id `altoclef_atm10`.
+- Added `colossuscraft_core` as the core NeoForge mod id and moved ATM10 automation to addon mod id `colossuscraft_atm10`.
 - Wired `/altoclef on|off|status|help|get|exec|baritone|stop` plus the upstream chat-prefix command names: `@help`, `@custom`, `@get`, `@goto`, `@follow`, `@give`, `@equip`, `@food`, `@deposit`, `@stash`, `@coords`, `@inventory`, `@list`, `@gamma`, `@locate_structure`, `@reload_settings`, `@gamer`, `@test`, `@punk`, `@status`, and `@stop`.
 - Added NeoForge/MojMap task class coverage for all upstream `adris.altoclef.tasks` filenames. Many high-risk Fabric/Baritone-internal tasks are compatibility wrappers over the ported collector, container, movement, combat, and speedrun primitives while MojMap-specific behavior is filled in.
 - ATM10 addon commands now live under `/atmquests`; it shares the core `AltoClefPort` instance instead of owning a second port.

@@ -21,6 +21,15 @@ public class BlockTracker extends Tracker {
     private final Map<Block, List<BlockPos>> known = new HashMap<>();
     private final Set<BlockPos> unreachable = new HashSet<>();
 
+    // The full-volume rescan in updateState() is expensive (range^2 * height block lookups).
+    // Throttle it: reuse the cached `known` map and only rescan when the tracked-block set
+    // changes or a short interval elapses. Without this, every getKnownLocations() call (many
+    // per tick) triggers a fresh ~600k-block scan and collapses the client frame rate.
+    private static final long SCAN_INTERVAL_MS = 1000;
+    private long lastScanTimeMs = 0;
+    private boolean hasScanned = false;
+    private int lastTrackedHash = -1;
+
     public BlockTracker(AltoClef mod, TrackerManager manager) {
         super(manager);
         this.mod = mod;
@@ -119,17 +128,21 @@ public class BlockTracker extends Tracker {
     }
 
     public Optional<BlockPos> getNearestWithinRange(Vec3 pos, double range, Block... blocks) {
-        BlockPos center = BlockPos.containing(pos);
-        int r = (int) Math.ceil(range);
+        // Use the throttled `known` cache instead of a fresh cubic scan. A brute-force
+        // betweenClosed scan here is O(range^3): at range 64 that is ~2.1M getBlockState calls
+        // EVERY tick (e.g. DefaultGoToDimensionTask polling for a portal), which collapses FPS.
+        // The cache is populated by updateState() for tracked blocks; callers track what they query.
+        updateState();
         BlockPos best = null;
-        double bestDistance = Double.POSITIVE_INFINITY;
-        for (BlockPos check : BlockPos.betweenClosed(center.offset(-r, -r, -r), center.offset(r, r, r))) {
-            BlockPos immutable = check.immutable();
-            if (unreachable(immutable) || !blockIsValid(immutable, blocks)) continue;
-            double distance = immutable.getCenter().distanceToSqr(pos);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = immutable;
+        double bestDistance = range * range;
+        for (Block block : blocks) {
+            for (BlockPos candidate : known.getOrDefault(block, List.of())) {
+                if (unreachable(candidate)) continue;
+                double distance = candidate.getCenter().distanceToSqr(pos);
+                if (distance <= bestDistance) {
+                    bestDistance = distance;
+                    best = candidate;
+                }
             }
         }
         return Optional.ofNullable(best);
@@ -159,6 +172,14 @@ public class BlockTracker extends Tracker {
     @Override
     protected void updateState() {
         if (mod.getPlayer() == null || mod.getWorld() == null || trackingBlocks.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        int trackedHash = trackingBlocks.keySet().hashCode();
+        if (hasScanned && trackedHash == lastTrackedHash && now - lastScanTimeMs < SCAN_INTERVAL_MS) {
+            return; // reuse cached `known`; the world hasn't been rescanned this interval
+        }
+        lastScanTimeMs = now;
+        lastTrackedHash = trackedHash;
+        hasScanned = true;
         known.clear();
         int horizontal = mod.getModSettings().getBlockScanHorizontalRange();
         int vertical = mod.getModSettings().getBlockScanVerticalRange();
@@ -179,5 +200,7 @@ public class BlockTracker extends Tracker {
     protected void reset() {
         known.clear();
         unreachable.clear();
+        hasScanned = false;
+        lastTrackedHash = -1;
     }
 }

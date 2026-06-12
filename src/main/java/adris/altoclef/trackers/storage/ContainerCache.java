@@ -10,11 +10,17 @@ import java.util.Map;
 public class ContainerCache {
     private final BlockPos blockPos;
     private final ContainerType type;
+    private final String dimension;
     private final Map<Item, Integer> itemCounts = new HashMap<>();
 
     public ContainerCache(BlockPos blockPos, ContainerType type) {
+        this(blockPos, type, "");
+    }
+
+    public ContainerCache(BlockPos blockPos, ContainerType type, String dimension) {
         this.blockPos = blockPos;
         this.type = type;
+        this.dimension = dimension == null ? "" : dimension;
     }
 
     public BlockPos getBlockPos() {
@@ -23,6 +29,10 @@ public class ContainerCache {
 
     public ContainerType getType() {
         return type;
+    }
+
+    public String getDimension() {
+        return dimension;
     }
 
     public Map<Item, Integer> getItemCounts() {

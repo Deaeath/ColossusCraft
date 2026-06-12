@@ -7,7 +7,7 @@ public class Debug {
     public static AltoClef jankModInstance;
 
     public static void logInternal(String message) {
-        System.err.println("ALTO CLEF: " + message);
+        System.err.println("COLOSSUSCRAFT: " + message);
     }
 
     public static void logInternal(String format, Object... args) {
@@ -62,7 +62,7 @@ public class Debug {
         if (jankModInstance != null) {
             return jankModInstance.getModSettings().getChatLogPrefix();
         }
-        return "[Alto Clef] ";
+        return "[ColossusCraft] ";
     }
 
     private static String getStack(int toSkip) {

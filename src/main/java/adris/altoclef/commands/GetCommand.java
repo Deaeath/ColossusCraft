@@ -27,6 +27,6 @@ public class GetCommand extends Command {
             finish();
             return;
         }
-        mod.runUserTask(task, this::finish);
+        mod.runUserTask(task, this::finish, true);
     }
 }

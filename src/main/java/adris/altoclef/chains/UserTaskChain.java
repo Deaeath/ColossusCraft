@@ -12,6 +12,7 @@ public class UserTaskChain extends SingleTaskChain {
 
     private final Stopwatch taskStopwatch = new Stopwatch();
     private Runnable currentOnFinish;
+    private boolean currentPrioritizesOverMobDefense;
 
     public UserTaskChain(TaskRunner runner) {
         super(runner);
@@ -35,13 +36,22 @@ public class UserTaskChain extends SingleTaskChain {
         return 50;
     }
 
+    public boolean shouldPrioritizeOverMobDefense() {
+        return mainTask != null && currentPrioritizesOverMobDefense;
+    }
+
     @Override
     public String getName() {
         return "User Tasks";
     }
 
     public void runTask(AltoClef mod, Task task, Runnable onFinish) {
+        runTask(mod, task, onFinish, false);
+    }
+
+    public void runTask(AltoClef mod, Task task, Runnable onFinish, boolean prioritizeOverMobDefense) {
         currentOnFinish = onFinish;
+        currentPrioritizesOverMobDefense = prioritizeOverMobDefense;
         Debug.logMessage("User Task Set: " + task);
         mod.getTaskRunner().enable();
         taskStopwatch.begin();
@@ -57,6 +67,7 @@ public class UserTaskChain extends SingleTaskChain {
             currentOnFinish.run();
         }
         if (mainTask == null) {
+            currentPrioritizesOverMobDefense = false;
             Debug.logMessage("User task FINISHED. Took %.3f seconds.", seconds);
             EventBus.publish(new TaskFinishedEvent(seconds, oldTask));
             mod.getTaskRunner().disable();

@@ -10,6 +10,8 @@ import adris.altoclef.eventbus.events.ScreenOpenEvent;
 import adris.altoclef.trackers.LocateResultTracker;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -27,7 +29,7 @@ import java.util.stream.Collectors;
 
 @Mod(value = NeoForgeAltoClefMod.MOD_ID, dist = Dist.CLIENT)
 public final class NeoForgeAltoClefMod {
-    public static final String MOD_ID = "altoclef";
+    public static final String MOD_ID = "colossuscraft_core";
     private static final AltoClefPort PORT = new AltoClefPort(new NeoForgeAltoClefPlatform());
 
     public NeoForgeAltoClefMod(IEventBus modBus) {
@@ -45,7 +47,13 @@ public final class NeoForgeAltoClefMod {
     }
 
     private static void registerCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(Commands.literal("altoclef")
+        event.getDispatcher().register(coreCommand("altoclef"));
+        event.getDispatcher().register(coreCommand("colossuscraft"));
+        event.getDispatcher().register(coreCommand("cc"));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> coreCommand(String name) {
+        return Commands.literal(name)
                 .then(Commands.literal("on").executes(ctx -> coreOn()))
                 .then(Commands.literal("off").executes(ctx -> coreOff()))
                 .then(Commands.literal("status").executes(ctx -> coreStatus()))
@@ -56,16 +64,24 @@ public final class NeoForgeAltoClefMod {
                                 .executes(ctx -> coreGet(StringArgumentType.getString(ctx, "item"), 1))
                                 .then(Commands.argument("count", IntegerArgumentType.integer(1))
                                         .executes(ctx -> coreGet(StringArgumentType.getString(ctx, "item"), IntegerArgumentType.getInteger(ctx, "count"))))))
+                .then(Commands.literal("kill")
+                        .then(Commands.argument("entity", StringArgumentType.word())
+                                .executes(ctx -> coreExec("kill " + StringArgumentType.getString(ctx, "entity")))))
                 .then(Commands.literal("exec")
                         .then(Commands.argument("command", StringArgumentType.greedyString())
                                 .executes(ctx -> coreExec(StringArgumentType.getString(ctx, "command")))))
                 .then(Commands.literal("baritone")
                         .then(Commands.argument("command", StringArgumentType.greedyString())
-                                .executes(ctx -> baritone(StringArgumentType.getString(ctx, "command"))))));
+                                .executes(ctx -> baritone(StringArgumentType.getString(ctx, "command")))));
     }
 
     private static void clientTick(ClientTickEvent.Post event) {
         PORT.tick();
+        // Index opened containers + drive cache persistence every tick, even when the bot is idle.
+        adris.altoclef.trackers.storage.ContainerSubTracker containers = PORT.core().getContainerTracker();
+        if (containers != null) {
+            containers.tickScan();
+        }
     }
 
     private static void clientChat(ClientChatEvent event) {
@@ -111,7 +127,7 @@ public final class NeoForgeAltoClefMod {
 
     private static int coreStatus() {
         adris.altoclef.tasksystem.Task task = PORT.core().getUserTaskChain().getCurrentTask();
-        PORT.core().log("AltoClef core: " + (PORT.running() ? "ON" : "OFF") + " task=" + (task == null ? "none" : task));
+        PORT.core().log("ColossusCraft core: " + (PORT.running() ? "ON" : "OFF") + " task=" + (task == null ? "none" : task));
         return 1;
     }
 
@@ -120,7 +136,7 @@ public final class NeoForgeAltoClefMod {
                 .sorted(Comparator.comparing(Command::getName))
                 .map(command -> "@" + command.getHelpRepresentation())
                 .collect(Collectors.joining(", "));
-        PORT.core().log("AltoClef commands: " + commands);
+        PORT.core().log("ColossusCraft commands: " + commands);
         return 1;
     }
 

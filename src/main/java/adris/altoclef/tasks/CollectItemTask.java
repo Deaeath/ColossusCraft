@@ -131,6 +131,7 @@ public class CollectItemTask extends Task {
         RecipeHolder<?> best = null;
         int bestScore = Integer.MAX_VALUE;
         for (RecipeHolder<?> holder : net.minecraft.client.Minecraft.getInstance().getConnection().getRecipeManager().getRecipes()) {
+            if (!holder.id().getNamespace().equals("minecraft")) continue; // vanilla-default: ignore modded/pack recipes
             Recipe<?> recipe = holder.value();
             if (!(recipe instanceof CraftingRecipe)) continue;
             ItemStack result = recipe.getResultItem(mod.getPlayer().registryAccess());
@@ -150,6 +151,7 @@ public class CollectItemTask extends Task {
         RecipeHolder<?> best = null;
         int bestScore = Integer.MAX_VALUE;
         for (RecipeHolder<?> holder : net.minecraft.client.Minecraft.getInstance().getConnection().getRecipeManager().getRecipes()) {
+            if (!holder.id().getNamespace().equals("minecraft")) continue; // vanilla-default: ignore modded/pack recipes
             Recipe<?> recipe = holder.value();
             if (!(recipe instanceof AbstractCookingRecipe)) continue;
             ItemStack result = recipe.getResultItem(mod.getPlayer().registryAccess());
@@ -292,13 +294,24 @@ public class CollectItemTask extends Task {
             ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
             if (id != null && BuiltInRegistries.BLOCK.containsKey(id)) {
                 Block block = BuiltInRegistries.BLOCK.get(id);
-                if (!block.defaultBlockState().isAir() && !result.contains(block)) {
+                if (!block.defaultBlockState().isAir() && !isContainerLikeBlock(block) && !result.contains(block)) {
                     result.add(block);
                 }
             }
             addBlockFallbacks(result, id);
         }
         return result;
+    }
+
+    private static boolean isContainerLikeBlock(Block block) {
+        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
+        if (id == null) return false;
+        String path = id.getPath();
+        return path.contains("chest")
+                || path.contains("barrel")
+                || path.contains("shulker_box")
+                || path.contains("crate")
+                || path.contains("drawer");
     }
 
     private static void addBlockFallbacks(List<Block> result, ResourceLocation itemId) {

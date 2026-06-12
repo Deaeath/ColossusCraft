@@ -88,7 +88,7 @@ public class CataloguedResourceTask extends ResourceTask {
 
     @Override
     protected String toDebugStringName() {
-        return "Get catalogued: " + ArrayUtils.toString(_targets);
+        return "Get catalogued: " + Arrays.toString(_targets);
     }
 
     private void squashTasks(List<ResourceTask> tasks) {

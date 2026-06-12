@@ -8,7 +8,7 @@ import adris.altoclef.util.helpers.LookHelper;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.slots.Slot;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -36,7 +36,7 @@ public class PickupFromContainerTask extends Task {
 
     @Override
     protected Task onTick(AltoClef mod) {
-        if (!(Minecraft.getInstance().screen instanceof ContainerScreen)) {
+        if (!(Minecraft.getInstance().screen instanceof AbstractContainerScreen)) {
             if (mod.getPlayer() != null && mod.getPlayer().blockPosition().distSqr(targetContainer) > 16) {
                 return new GetToBlockTask(targetContainer);
             }

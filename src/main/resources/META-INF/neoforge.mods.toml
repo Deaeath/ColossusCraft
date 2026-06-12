@@ -1,116 +1,139 @@
 modLoader="javafml"
 loaderVersion="[4,)"
-license="Private"
+license="All Rights Reserved"
+
+[[mixins]]
+config="altoclef.mixins.json"
 
 [[mods]]
-modId="baritoneautoeat"
+modId="baritoe"
+version="1.11.2-colossuscraft"
+displayName="ColossusCraft Pathfinder"
+description="Bundled Baritone pathfinder patched for ColossusCraft."
+
+[[mods]]
+modId="colossuscraft_autoeat"
 version="1.0.2"
-displayName="Baritone AutoEat"
-description="Client-side auto-eat companion for Baritone mining."
+displayName="ColossusCraft AutoEat"
+description="Client-side combat-aware auto-eat companion."
 
 [[mods]]
-modId="pveguard"
+modId="colossuscraft_guard"
 version="1.2.3"
-displayName="PvE Guard"
-description="Client-side PvE hostile guard."
+displayName="ColossusCraft Guard"
+description="Always-on client-side survival guard."
 
 [[mods]]
-modId="altoclef"
+modId="colossuscraft_core"
 version="1.2.4"
-displayName="AltoClef NeoForge Port"
-description="Client-side AltoClef core port for NeoForge/MojMap."
+displayName="ColossusCraft Core"
+description="Client-side automation core for NeoForge/MojMap."
 
 [[mods]]
-modId="altoclef_atm10"
+modId="colossuscraft_atm10"
 version="1.2.4"
-displayName="AltoClef ATM10 Addon"
-description="ATM10 Star planner, FTB Quests helper, and Baritone gather driver built on AltoClef."
+displayName="ColossusCraft ATM10"
+description="ATM10 Star planner, FTB Quests helper, and gather driver."
 
-[[dependencies.baritoneautoeat]]
+[[dependencies.colossuscraft_autoeat]]
 modId="neoforge"
 type="required"
 versionRange="[21.1,)"
 ordering="NONE"
 side="CLIENT"
 
-[[dependencies.baritoneautoeat]]
+[[dependencies.baritoe]]
 modId="minecraft"
 type="required"
 versionRange="[1.21.1,1.22)"
 ordering="NONE"
 side="CLIENT"
 
-[[dependencies.pveguard]]
+[[dependencies.baritoe]]
 modId="neoforge"
 type="required"
 versionRange="[21.1,)"
 ordering="NONE"
 side="CLIENT"
 
-[[dependencies.pveguard]]
+[[dependencies.colossuscraft_autoeat]]
 modId="minecraft"
 type="required"
 versionRange="[1.21.1,1.22)"
 ordering="NONE"
 side="CLIENT"
 
-[[dependencies.altoclef]]
+[[dependencies.colossuscraft_guard]]
 modId="neoforge"
 type="required"
 versionRange="[21.1,)"
 ordering="NONE"
 side="CLIENT"
 
-[[dependencies.altoclef]]
+[[dependencies.colossuscraft_guard]]
 modId="minecraft"
 type="required"
 versionRange="[1.21.1,1.22)"
 ordering="NONE"
 side="CLIENT"
 
-[[dependencies.altoclef]]
+[[dependencies.colossuscraft_core]]
+modId="neoforge"
+type="required"
+versionRange="[21.1,)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.colossuscraft_core]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1,1.22)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.colossuscraft_core]]
 modId="architectury"
 type="required"
 versionRange="[13.0,)"
 ordering="AFTER"
 side="CLIENT"
 
-[[dependencies.altoclef]]
+[[dependencies.colossuscraft_core]]
 modId="baritoe"
 type="optional"
 versionRange="[1.11,)"
 ordering="AFTER"
 side="CLIENT"
 
-[[dependencies.altoclef_atm10]]
+[[dependencies.colossuscraft_atm10]]
 modId="neoforge"
 type="required"
 versionRange="[21.1,)"
 ordering="NONE"
 side="CLIENT"
 
-[[dependencies.altoclef_atm10]]
+[[dependencies.colossuscraft_atm10]]
 modId="minecraft"
 type="required"
 versionRange="[1.21.1,1.22)"
 ordering="NONE"
 side="CLIENT"
 
-[[dependencies.altoclef_atm10]]
-modId="altoclef"
+[[dependencies.colossuscraft_atm10]]
+modId="colossuscraft_core"
 type="required"
 versionRange="[1.2.4,)"
 ordering="AFTER"
 side="CLIENT"
 
-[[dependencies.altoclef_atm10]]
+[[dependencies.colossuscraft_atm10]]
 modId="ftbquests"
 type="required"
 versionRange="[2101.1,)"
 ordering="AFTER"
 side="CLIENT"
 
-[[dependencies.altoclef_atm10]]
+[[dependencies.colossuscraft_atm10]]
 modId="baritoe"
 type="optional"
 versionRange="[1.11,)"

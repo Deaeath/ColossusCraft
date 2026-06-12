@@ -3,13 +3,20 @@ package adris.altoclef.trackers;
 import adris.altoclef.Debug;
 import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.PlayerCollidedWithEntityEvent;
+import adris.altoclef.mixins.PersistentProjectileEntityAccessor;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.baritone.CachedProjectile;
+import adris.altoclef.util.helpers.ProjectileHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.AbstractArrow;
+import net.minecraft.world.entity.projectile.FishingHook;
+import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.ThrownEnderpearl;
+import net.minecraft.world.entity.projectile.ThrownExperienceBottle;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.phys.Vec3;
 
@@ -257,12 +264,30 @@ public class EntityTracker extends Tracker {
             if (entity instanceof Enemy && mod.getPlayer() != null && entity.distanceTo(mod.getPlayer()) < 26) {
                 hostiles.add(entity);
             }
+            if (entity instanceof Projectile projectile && shouldTrackProjectile(projectile)) {
+                CachedProjectile cached = new CachedProjectile();
+                cached.position = projectile.position();
+                cached.velocity = projectile.getDeltaMovement();
+                cached.gravity = ProjectileHelper.hasGravity(projectile) ? ProjectileHelper.ARROW_GRAVITY_ACCEL : 0;
+                cached.projectileType = projectile.getClass();
+                projectiles.add(cached);
+            }
             if (entity instanceof Player player) {
                 String name = player.getName().getString();
                 playerMap.put(name, player);
                 playerLastCoordinates.put(name, player.position());
             }
         }
+    }
+
+    private boolean shouldTrackProjectile(Projectile projectile) {
+        if (projectile instanceof FishingHook || projectile instanceof ThrownEnderpearl || projectile instanceof ThrownExperienceBottle) {
+            return false;
+        }
+        if (projectile.getOwner() == mod.getPlayer()) {
+            return false;
+        }
+        return !(projectile instanceof AbstractArrow arrow) || !((PersistentProjectileEntityAccessor) arrow).isInGround();
     }
 
     @Override

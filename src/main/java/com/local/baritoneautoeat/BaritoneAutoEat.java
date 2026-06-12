@@ -1,14 +1,18 @@
 package com.local.baritoneautoeat;
 
+import adris.altoclef.platform.NeoForgeAltoClefMod;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -21,6 +25,7 @@ import net.minecraft.world.entity.projectile.ShulkerBullet;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
@@ -39,7 +44,8 @@ import java.util.Properties;
 
 @Mod(value = BaritoneAutoEat.MOD_ID, dist = Dist.CLIENT)
 public final class BaritoneAutoEat {
-    public static final String MOD_ID = "baritoneautoeat";
+    public static final String MOD_ID = "colossuscraft_autoeat";
+    private static final int CONFIG_VERSION = 2;
 
     private static boolean loaded;
     private static boolean enabled = true;
@@ -47,7 +53,7 @@ public final class BaritoneAutoEat {
     private static boolean preferOffhand = false;
     private static boolean restoreSlot = true;
     private static boolean safetyCheck = true;
-    private static int threshold = 18;
+    private static int threshold = 10;
     private static int cooldownTicks;
     private static boolean eating;
     private static boolean useHeld;
@@ -62,12 +68,11 @@ public final class BaritoneAutoEat {
     private static int notUsingTicks;
 
     public BaritoneAutoEat(IEventBus modBus) {
-        NeoForge.EVENT_BUS.addListener(BaritoneAutoEat::registerCommands);
         NeoForge.EVENT_BUS.addListener(BaritoneAutoEat::clientTick);
     }
 
-    private static void registerCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(Commands.literal("autoeat")
+    public static LiteralArgumentBuilder<CommandSourceStack> command() {
+        return Commands.literal("autoeat")
                 .then(Commands.literal("on").executes(ctx -> setEnabled(true)))
                 .then(Commands.literal("off").executes(ctx -> setEnabled(false)))
                 .then(Commands.literal("toggle").executes(ctx -> setEnabled(!enabled)))
@@ -75,7 +80,7 @@ public final class BaritoneAutoEat {
                     ensureLoaded();
                     threshold = IntegerArgumentType.getInteger(ctx, "food");
                     save();
-                    say("AutoEat threshold: " + threshold);
+                    say("ColossusCraft AutoEat threshold: " + threshold);
                     return 1;
                 })))
                 .then(Commands.literal("inventory")
@@ -92,10 +97,9 @@ public final class BaritoneAutoEat {
                         .then(Commands.literal("off").executes(ctx -> setSafetyCheck(false))))
                 .then(Commands.literal("status").executes(ctx -> {
                     ensureLoaded();
-                    say("AutoEat: " + (enabled ? "ON" : "OFF") + " threshold=" + threshold + " inventory=" + useInventory + " offhand=" + preferOffhand + " restore=" + restoreSlot + " safety=" + safetyCheck);
+                    say("ColossusCraft AutoEat: " + (enabled ? "ON" : "OFF") + " threshold=" + threshold + " inventory=" + useInventory + " offhand=" + preferOffhand + " restore=" + restoreSlot + " safety=" + safetyCheck);
                     return 1;
-                }))
-        );
+                }));
     }
 
     private static int setEnabled(boolean value) {
@@ -105,7 +109,7 @@ public final class BaritoneAutoEat {
             stopEating(Minecraft.getInstance(), true, true);
         }
         save();
-        say("AutoEat: " + (enabled ? "ON" : "OFF"));
+        say("ColossusCraft AutoEat: " + (enabled ? "ON" : "OFF"));
         return 1;
     }
 
@@ -113,7 +117,7 @@ public final class BaritoneAutoEat {
         ensureLoaded();
         useInventory = value;
         save();
-        say("AutoEat inventory: " + (useInventory ? "ON" : "OFF"));
+        say("ColossusCraft AutoEat inventory: " + (useInventory ? "ON" : "OFF"));
         return 1;
     }
 
@@ -121,7 +125,7 @@ public final class BaritoneAutoEat {
         ensureLoaded();
         preferOffhand = value;
         save();
-        say("AutoEat offhand: " + (preferOffhand ? "ON" : "OFF"));
+        say("ColossusCraft AutoEat offhand: " + (preferOffhand ? "ON" : "OFF"));
         return 1;
     }
 
@@ -129,7 +133,7 @@ public final class BaritoneAutoEat {
         ensureLoaded();
         restoreSlot = value;
         save();
-        say("AutoEat restore: " + (restoreSlot ? "ON" : "OFF"));
+        say("ColossusCraft AutoEat restore: " + (restoreSlot ? "ON" : "OFF"));
         return 1;
     }
 
@@ -137,7 +141,7 @@ public final class BaritoneAutoEat {
         ensureLoaded();
         safetyCheck = value;
         save();
-        say("AutoEat safety: " + (safetyCheck ? "ON" : "OFF"));
+        say("ColossusCraft AutoEat safety: " + (safetyCheck ? "ON" : "OFF"));
         return 1;
     }
 
@@ -146,6 +150,10 @@ public final class BaritoneAutoEat {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (!enabled || player == null || mc.level == null || mc.gameMode == null || player.isSpectator() || mc.screen != null) {
+            stopEating(mc, true, true);
+            return;
+        }
+        if (NeoForgeAltoClefMod.port().running()) {
             stopEating(mc, true, true);
             return;
         }
@@ -160,13 +168,17 @@ public final class BaritoneAutoEat {
             return;
         }
 
-        if (player.getFoodData().getFoodLevel() > threshold || !player.canEat(false)) {
+        if (!player.canEat(false)) {
             return;
         }
 
         int foodSlot = findBestFoodSlot(player);
         if (foodSlot < 0) {
             cooldownTicks = 40;
+            return;
+        }
+
+        if (!shouldEatNow(player, player.getInventory().getItem(foodSlot))) {
             return;
         }
 
@@ -348,6 +360,12 @@ public final class BaritoneAutoEat {
         return eating;
     }
 
+    public static boolean shouldPrioritizeEating() {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        return eating && player != null && shouldEatNow(player, findBestFoodStack(player));
+    }
+
     public static void abortForCombat() {
         stopEating(Minecraft.getInstance(), true, true);
         cooldownTicks = 20;
@@ -359,7 +377,7 @@ public final class BaritoneAutoEat {
         double bestScore = -1.0D;
         for (int slot = 0; slot < limit; slot++) {
             ItemStack stack = player.getInventory().getItem(slot);
-            double score = foodScore(stack);
+            double score = foodScore(stack, player);
             if (score > bestScore) {
                 bestScore = score;
                 bestSlot = slot;
@@ -369,7 +387,7 @@ public final class BaritoneAutoEat {
     }
 
     private static boolean isFood(ItemStack stack) {
-        return foodScore(stack) >= 0.0D;
+        return isFoodCandidate(stack);
     }
 
     private static int foodUseTicks(ItemStack stack, LocalPlayer player) {
@@ -380,19 +398,76 @@ public final class BaritoneAutoEat {
         return Math.max(32, stack.getUseDuration(player));
     }
 
-    private static double foodScore(ItemStack stack) {
+    private static ItemStack findBestFoodStack(LocalPlayer player) {
+        int slot = findBestFoodSlot(player);
+        return slot < 0 ? ItemStack.EMPTY : player.getInventory().getItem(slot);
+    }
+
+    private static boolean shouldEatNow(LocalPlayer player, ItemStack bestFood) {
+        if (!isFoodCandidate(bestFood)) {
+            return false;
+        }
+        int foodLevel = player.getFoodData().getFoodLevel();
+        float health = player.getHealth();
+        if (foodLevel >= 20) {
+            return false;
+        }
+        if (health <= 10.0F && foodLevel <= 19) {
+            return true;
+        }
+        if (player.isOnFire() || player.hasEffect(MobEffects.WITHER) || health < 6.0F) {
+            return true;
+        }
+        FoodProperties food = bestFood.get(DataComponents.FOOD);
+        if (foodLevel < 15 && food != null && food.nutrition() == 20 - foodLevel) {
+            return true;
+        }
+        if (foodLevel > threshold) {
+            return health < 14.0F;
+        }
+        if (foodLevel <= threshold) {
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isFoodCandidate(ItemStack stack) {
         if (stack.isEmpty()) {
-            return -1.0D;
+            return false;
         }
         String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        if (id.equals("minecraft:golden_apple") || id.equals("minecraft:enchanted_golden_apple")) {
+        return !id.equals("minecraft:golden_apple")
+                && !id.equals("minecraft:enchanted_golden_apple")
+                && stack.getItem() != Items.SPIDER_EYE
+                && stack.get(DataComponents.FOOD) != null;
+    }
+
+    private static double foodScore(ItemStack stack, LocalPlayer player) {
+        if (!isFoodCandidate(stack)) {
             return -1.0D;
         }
         FoodProperties food = stack.get(DataComponents.FOOD);
-        if (food == null || !food.effects().isEmpty()) {
+        if (food == null) {
             return -1.0D;
         }
-        return food.nutrition() * 4.0D + food.saturation();
+        float hunger = player.getFoodData().getFoodLevel();
+        float saturation = player.getFoodData().getSaturationLevel();
+        float hungerIfEaten = Math.min(hunger + food.nutrition(), 20.0F);
+        float saturationIfEaten = Math.min(hungerIfEaten, saturation + food.saturation());
+        float gainedSaturation = saturationIfEaten - saturation;
+        float gainedHunger = hungerIfEaten - hunger;
+        float hungerNotFilled = 20.0F - hungerIfEaten;
+        float saturationWasted = food.saturation() - gainedSaturation;
+        float hungerWasted = food.nutrition() - gainedHunger;
+        boolean prioritizeSaturation = player.getHealth() < 8.0F;
+        double score = (prioritizeSaturation ? gainedSaturation * 8.0D : gainedSaturation)
+                - (prioritizeSaturation ? 0.0D : saturationWasted)
+                - hungerWasted * 2.0D
+                - hungerNotFilled;
+        if (stack.getItem() == Items.ROTTEN_FLESH) {
+            score -= 100.0D;
+        }
+        return score;
     }
 
     private static boolean shouldWaitToEat(Minecraft mc, LocalPlayer player, int eatTicks) {
@@ -539,6 +614,11 @@ public final class BaritoneAutoEat {
         }
         loaded = true;
         Path file = configFile();
+        boolean migrated = false;
+        if (!Files.exists(file) && Files.exists(legacyConfigFile())) {
+            file = legacyConfigFile();
+            migrated = true;
+        }
         if (!Files.exists(file)) {
             save();
             return;
@@ -552,14 +632,21 @@ public final class BaritoneAutoEat {
             preferOffhand = Boolean.parseBoolean(props.getProperty("preferOffhand", "false"));
             restoreSlot = Boolean.parseBoolean(props.getProperty("restoreSlot", "true"));
             safetyCheck = Boolean.parseBoolean(props.getProperty("safetyCheck", "true"));
-            threshold = clamp(Integer.parseInt(props.getProperty("threshold", "18")), 1, 19);
+            int configVersion = Integer.parseInt(props.getProperty("logicVersion", "1"));
+            threshold = clamp(Integer.parseInt(props.getProperty("threshold", "10")), 1, 19);
+            if (configVersion < CONFIG_VERSION && threshold > 10) {
+                threshold = 10;
+                save();
+            } else if (migrated) {
+                save();
+            }
         } catch (Exception ignored) {
             enabled = true;
             useInventory = true;
             preferOffhand = false;
             restoreSlot = true;
             safetyCheck = true;
-            threshold = 18;
+            threshold = 10;
             save();
         }
     }
@@ -573,16 +660,21 @@ public final class BaritoneAutoEat {
         props.setProperty("restoreSlot", Boolean.toString(restoreSlot));
         props.setProperty("safetyCheck", Boolean.toString(safetyCheck));
         props.setProperty("threshold", Integer.toString(threshold));
+        props.setProperty("logicVersion", Integer.toString(CONFIG_VERSION));
         try {
             Files.createDirectories(file.getParent());
             try (OutputStream out = Files.newOutputStream(file)) {
-                props.store(out, "Baritone AutoEat client config");
+                props.store(out, "ColossusCraft AutoEat client config");
             }
         } catch (IOException ignored) {
         }
     }
 
     private static Path configFile() {
+        return Minecraft.getInstance().gameDirectory.toPath().resolve("config").resolve("colossuscraft-autoeat.properties");
+    }
+
+    private static Path legacyConfigFile() {
         return Minecraft.getInstance().gameDirectory.toPath().resolve("config").resolve("baritone-autoeat.properties");
     }
 

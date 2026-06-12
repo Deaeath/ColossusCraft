@@ -25,16 +25,19 @@ public final class AltoClefPort {
     }
 
     public void start() {
+        boolean wasRunning = running;
         running = true;
         altoClef.getTaskRunner().enable();
-        platform.log("AltoClef port core online");
+        if (!wasRunning) {
+            platform.log("ColossusCraft core online");
+        }
     }
 
     public void stop() {
         running = false;
         altoClef.getTaskRunner().disable();
         platform.stopPathing();
-        platform.log("AltoClef port core stopped");
+        platform.log("ColossusCraft core stopped");
     }
 
     public void tick() {

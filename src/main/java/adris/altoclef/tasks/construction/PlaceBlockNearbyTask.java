@@ -11,6 +11,7 @@ import java.util.function.Predicate;
 public class PlaceBlockNearbyTask extends Task {
     private final Predicate<BlockPos> canPlaceHere;
     private final Block[] toPlace;
+    private BlockPos placed;
 
     public PlaceBlockNearbyTask(Predicate<BlockPos> canPlaceHere, Block... toPlace) {
         this.canPlaceHere = canPlaceHere;
@@ -23,6 +24,7 @@ public class PlaceBlockNearbyTask extends Task {
 
     @Override
     protected void onStart(AltoClef mod) {
+        placed = null;
     }
 
     @Override
@@ -32,6 +34,7 @@ public class PlaceBlockNearbyTask extends Task {
         for (BlockPos scan : BlockPos.betweenClosed(center.offset(-2, -1, -2), center.offset(2, 1, 2))) {
             BlockPos pos = scan.immutable();
             if (mod.getWorld().getBlockState(pos).isAir() && mod.getWorld().getBlockState(pos.below()).isSolid() && canPlaceHere.test(pos)) {
+                placed = pos;
                 return new PlaceBlockTask(pos, toPlace);
             }
         }
@@ -41,6 +44,10 @@ public class PlaceBlockNearbyTask extends Task {
 
     @Override
     protected void onStop(AltoClef mod, Task interruptTask) {
+    }
+
+    public BlockPos getPlaced() {
+        return placed;
     }
 
     @Override

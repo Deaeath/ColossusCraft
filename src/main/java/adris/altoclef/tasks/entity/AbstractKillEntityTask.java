@@ -14,4 +14,8 @@ public abstract class AbstractKillEntityTask extends KillEntitiesTask {
     public AbstractKillEntityTask(Class<? extends Entity>... entityClasses) {
         super(entityClasses);
     }
+
+    public static void equipWeapon(adris.altoclef.AltoClef mod) {
+        adris.altoclef.control.KillAura.equipWeapon(mod);
+    }
 }

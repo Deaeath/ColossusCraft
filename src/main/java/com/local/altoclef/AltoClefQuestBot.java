@@ -8,6 +8,7 @@ import dev.architectury.networking.NetworkManager;
 import dev.ftb.mods.ftbquests.client.ClientQuestFile;
 import dev.ftb.mods.ftbquests.net.ClaimAllRewardsMessage;
 import dev.ftb.mods.ftbquests.net.SubmitTaskMessage;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.ftb.mods.ftbquests.quest.Quest;
 import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.reward.ItemReward;
@@ -15,6 +16,7 @@ import dev.ftb.mods.ftbquests.quest.task.ItemTask;
 import dev.ftb.mods.ftbquests.quest.task.Task;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -55,7 +57,7 @@ import java.util.stream.Collectors;
 
 @Mod(value = AltoClefQuestBot.MOD_ID, dist = Dist.CLIENT)
 public final class AltoClefQuestBot {
-    public static final String MOD_ID = "altoclef_atm10";
+    public static final String MOD_ID = "colossuscraft_atm10";
 
     private static boolean enabled;
     private static int tick;
@@ -74,31 +76,83 @@ public final class AltoClefQuestBot {
     private static final Map<String, StarRecipe> STAR_RECIPES = buildStarRecipes();
 
     public AltoClefQuestBot(IEventBus modBus) {
+        EmergencyHome.init();
+        InventoryView.init(modBus);
+        AltoClefUtilityCommands.init();
         NeoForge.EVENT_BUS.addListener(AltoClefQuestBot::registerCommands);
         NeoForge.EVENT_BUS.addListener(AltoClefQuestBot::clientTick);
     }
 
     private static void registerCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(Commands.literal("atmquests")
-                .then(Commands.literal("on").executes(ctx -> setEnabled(true)))
-                .then(Commands.literal("off").executes(ctx -> setEnabled(false)))
-                .then(Commands.literal("toggle").executes(ctx -> setEnabled(!enabled)))
-                .then(Commands.literal("status").executes(ctx -> status()))
-                .then(Commands.literal("next").executes(ctx -> next()))
-                .then(Commands.literal("star").executes(ctx -> star()))
-                .then(Commands.literal("starplan").executes(ctx -> starPlan()))
-                .then(Commands.literal("snapshot").executes(ctx -> snapshot()))
-                .then(Commands.literal("assess").executes(ctx -> snapshot()))
-                .then(Commands.literal("audit").executes(ctx -> audit()))
-                .then(Commands.literal("submit").executes(ctx -> submitNow()))
-                .then(Commands.literal("claim").executes(ctx -> claimNow()))
+        LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal("colossuscraft")
+                // Core controls (replaces /altoclef)
+                .then(Commands.literal("on").executes(ctx -> coreOn()))
+                .then(Commands.literal("off").executes(ctx -> coreOff()))
+                .then(Commands.literal("status").executes(ctx -> coreStatus()))
                 .then(Commands.literal("stop").executes(ctx -> stop()))
-                .then(Commands.literal("goal")
-                        .then(Commands.literal("star").executes(ctx -> setGoal(GoalMode.ATM_STAR)))
-                        .then(Commands.literal("all").executes(ctx -> setGoal(GoalMode.ALL_QUESTS))))
-                .then(Commands.literal("altar").executes(ctx -> altar()))
-                .then(Commands.literal("machines").executes(ctx -> machines()))
-        );
+                .then(Commands.literal("help").executes(ctx -> coreExec("help")))
+                .then(Commands.literal("exec").then(Commands.argument("command", StringArgumentType.greedyString()).executes(ctx -> coreExec(StringArgumentType.getString(ctx, "command")))))
+                .then(Commands.literal("baritone").then(Commands.argument("command", StringArgumentType.greedyString()).executes(ctx -> baritone(StringArgumentType.getString(ctx, "command")))))
+
+                // ATM10 Sub-module
+                .then(Commands.literal("atm")
+                        .then(Commands.literal("on").executes(ctx -> setEnabled(true)))
+                        .then(Commands.literal("off").executes(ctx -> setEnabled(false)))
+                        .then(Commands.literal("toggle").executes(ctx -> setEnabled(!enabled)))
+                        .then(Commands.literal("status").executes(ctx -> status()))
+                        .then(Commands.literal("next").executes(ctx -> next()))
+                        .then(Commands.literal("star").executes(ctx -> star()))
+                        .then(Commands.literal("starplan").executes(ctx -> starPlan()))
+                        .then(Commands.literal("snapshot").executes(ctx -> snapshot()))
+                        .then(Commands.literal("assess").executes(ctx -> snapshot()))
+                        .then(Commands.literal("audit").executes(ctx -> audit()))
+                        .then(Commands.literal("submit").executes(ctx -> submitNow()))
+                        .then(Commands.literal("claim").executes(ctx -> claimNow()))
+                        .then(Commands.literal("goal")
+                                .then(Commands.literal("star").executes(ctx -> setGoal(GoalMode.ATM_STAR)))
+                                .then(Commands.literal("all").executes(ctx -> setGoal(GoalMode.ALL_QUESTS))))
+                        .then(Commands.literal("altar").executes(ctx -> altar()))
+                .then(Commands.literal("machines").executes(ctx -> machines())))
+
+                // Bot functionality
+                .then(Commands.literal("follow").then(Commands.argument("player", StringArgumentType.word())
+                                .suggests(AltoClefCompletions::suggestPlayers)
+                                .executes(ctx -> follow(StringArgumentType.getString(ctx, "player")))))
+                .then(Commands.literal("food")
+                        .then(Commands.argument("units", IntegerArgumentType.integer(1)).executes(ctx -> food(IntegerArgumentType.getInteger(ctx, "units")))))
+                .then(Commands.literal("come").executes(ctx -> come()))
+                .then(Commands.literal("escape").executes(ctx -> escape()))
+                .then(Commands.literal("autohunt")
+                        .then(Commands.literal("on").executes(ctx -> setAutoHunt(true)))
+                        .then(Commands.literal("off").executes(ctx -> setAutoHunt(false))))
+                .then(Commands.literal("findchest")
+                        .then(Commands.argument("item", StringArgumentType.word())
+                                .suggests(AltoClefCompletions::suggestItems)
+                                .executes(ctx -> findChest(StringArgumentType.getString(ctx, "item"), false))
+                                .then(Commands.literal("goto").executes(ctx -> findChest(StringArgumentType.getString(ctx, "item"), true)))))
+
+                // Direct actions
+                .then(Commands.literal("kill").then(Commands.argument("entity", StringArgumentType.string())
+                        .suggests(AltoClefCompletions::suggestEntities)
+                        .executes(ctx -> kill(StringArgumentType.getString(ctx, "entity")))))
+                .then(Commands.literal("get").then(Commands.argument("item", StringArgumentType.word())
+                        .suggests(AltoClefCompletions::suggestItems)
+                        .executes(ctx -> get(StringArgumentType.getString(ctx, "item"), 1))
+                        .then(Commands.argument("count", IntegerArgumentType.integer(1))
+                                .executes(ctx -> get(StringArgumentType.getString(ctx, "item"), IntegerArgumentType.getInteger(ctx, "count")))))
+                .then(Commands.literal("goto").then(Commands.argument("x", IntegerArgumentType.integer())
+                        .then(Commands.argument("y", IntegerArgumentType.integer())
+                                .then(Commands.argument("z", IntegerArgumentType.integer())
+                                        .executes(ctx -> gotoPos(IntegerArgumentType.getInteger(ctx, "x"), IntegerArgumentType.getInteger(ctx, "y"), IntegerArgumentType.getInteger(ctx, "z"))))));
+
+        // Sub-modules
+        root.then(EmergencyHome.command());
+        root.then(InventoryView.command());
+        root.then(AltoClefUtilityCommands.command());
+        root.then(BaritoneAutoEat.command());
+
+        event.getDispatcher().register(root);
+        event.getDispatcher().register(Commands.literal("cc").redirect(event.getDispatcher().getRoot().getChild("colossuscraft")));
     }
 
     private static int setEnabled(boolean value) {
@@ -110,7 +164,7 @@ public final class AltoClefQuestBot {
             ftbPayloadQueue.clear();
             clearPendingCraft();
         }
-        say("AltoClef ATM10 quests: " + (enabled ? "ON" : "OFF") + " goal=" + goalMode.label);
+        say("ColossusCraft ATM10 quests: " + (enabled ? "ON" : "OFF") + " goal=" + goalMode.label);
         return 1;
     }
 
@@ -118,7 +172,7 @@ public final class AltoClefQuestBot {
         goalMode = mode;
         activeTaskId = Long.MIN_VALUE;
         activeMineTarget = "";
-        say("AltoClef goal: " + mode.label);
+        say("ColossusCraft goal: " + mode.label);
         return 1;
     }
 
@@ -126,10 +180,10 @@ public final class AltoClefQuestBot {
         QuestTarget target = findNextTarget();
         if (target == null) {
             QuestStep step = findNextQuestStep();
-            say("AltoClef: " + (enabled ? "ON" : "OFF") + " goal=" + goalMode.label + " " + (step == null ? "no visible quest step" : step.action));
+            say("ColossusCraft: " + (enabled ? "ON" : "OFF") + " goal=" + goalMode.label + " " + (step == null ? "no visible quest step" : step.action));
             return 1;
         }
-        say("AltoClef: " + (enabled ? "ON" : "OFF") + " goal=" + goalMode.label + " next " + target.itemId + " " + target.progress + "/" + target.required + " quest=" + target.questTitle + " action=" + targetAction(target));
+        say("ColossusCraft: " + (enabled ? "ON" : "OFF") + " goal=" + goalMode.label + " next " + target.itemId + " " + target.progress + "/" + target.required + " quest=" + target.questTitle + " action=" + targetAction(target));
         return 1;
     }
 
@@ -137,10 +191,10 @@ public final class AltoClefQuestBot {
         QuestTarget target = findNextTarget();
         if (target == null) {
             QuestStep step = findNextQuestStep();
-            say(step == null ? "AltoClef: no visible quest step" : "AltoClef next: " + step.action + " quest=" + step.questTitle);
+            say(step == null ? "ColossusCraft: no visible quest step" : "ColossusCraft next: " + step.action + " quest=" + step.questTitle);
             return 0;
         }
-        say("AltoClef next: " + target.itemId + " need " + Math.max(0L, target.required - target.progress) + " quest=" + target.questTitle + " action=" + targetAction(target));
+        say("ColossusCraft next: " + target.itemId + " need " + Math.max(0L, target.required - target.progress) + " quest=" + target.questTitle + " action=" + targetAction(target));
         return 1;
     }
 
@@ -203,31 +257,31 @@ public final class AltoClefQuestBot {
 
     private static int snapshot() {
         String report = buildSnapshotReport();
-        Path output = Minecraft.getInstance().gameDirectory.toPath().resolve("altoclef-snapshot.txt");
+        Path output = Minecraft.getInstance().gameDirectory.toPath().resolve("colossuscraft-snapshot.txt");
         try {
             Files.writeString(output, report);
-            say("AltoClef snapshot: " + output);
+            say("ColossusCraft snapshot: " + output);
         } catch (IOException e) {
-            say("AltoClef snapshot failed: " + e.getMessage());
+            say("ColossusCraft snapshot failed: " + e.getMessage());
             return 0;
         }
         return 1;
     }
 
     private static Path writeStarPlan() throws IOException {
-        Path output = Minecraft.getInstance().gameDirectory.toPath().resolve("altoclef-atm-star-plan.txt");
+        Path output = Minecraft.getInstance().gameDirectory.toPath().resolve("colossuscraft-atm-star-plan.txt");
         Files.writeString(output, buildStarPlanReport());
         return output;
     }
 
     private static int audit() {
         String report = buildAuditReport();
-        Path output = Minecraft.getInstance().gameDirectory.toPath().resolve("altoclef-atm10-audit.txt");
+        Path output = Minecraft.getInstance().gameDirectory.toPath().resolve("colossuscraft-atm10-audit.txt");
         try {
             Files.writeString(output, report);
-            say("AltoClef audit: " + output);
+            say("ColossusCraft audit: " + output);
         } catch (IOException e) {
-            say("AltoClef audit failed: " + e.getMessage());
+            say("ColossusCraft audit failed: " + e.getMessage());
             return 0;
         }
         return 1;
@@ -235,13 +289,13 @@ public final class AltoClefQuestBot {
 
     private static int submitNow() {
         int submitted = submitReadyTasks();
-        say("AltoClef submitted: " + submitted);
+        say("ColossusCraft submitted: " + submitted);
         return 1;
     }
 
     private static int claimNow() {
         claimAllRewards();
-        say("AltoClef claim all sent");
+        say("ColossusCraft claim all sent");
         return 1;
     }
 
@@ -253,7 +307,7 @@ public final class AltoClefQuestBot {
         activeMineTarget = "";
         ftbPayloadQueue.clear();
         clearPendingCraft();
-        say("AltoClef stopped");
+        say("ColossusCraft stopped");
         return 1;
     }
 
@@ -269,7 +323,7 @@ public final class AltoClefQuestBot {
 
     private static int coreStatus() {
         adris.altoclef.tasksystem.Task task = upstreamPort.core().getUserTaskChain().getCurrentTask();
-        say("AltoClef core port: " + (upstreamPort.running() ? "ON" : "OFF") + " task=" + (task == null ? "none" : task.toString()));
+        say("ColossusCraft core port: " + (upstreamPort.running() ? "ON" : "OFF") + " task=" + (task == null ? "none" : task.toString()));
         return 1;
     }
 
@@ -285,17 +339,17 @@ public final class AltoClefQuestBot {
     private static int build(String schematic) {
         String trimmed = schematic.trim();
         if (trimmed.isEmpty()) {
-            say("AltoClef: missing schematic");
+            say("ColossusCraft: missing schematic");
             return 0;
         }
         if (trimmed.equalsIgnoreCase("staraltar") || trimmed.equalsIgnoreCase("runic_star_altar")) {
             trimmed = "atm10_runic_star_altar";
         }
         if (runBaritone("build " + trimmed)) {
-            say("AltoClef build: " + trimmed);
+            say("ColossusCraft build: " + trimmed);
             return 1;
         }
-        say("AltoClef build failed: put .schematic/.litematic in minecraft/schematics");
+        say("ColossusCraft build failed: put .schematic/.litematic in minecraft/schematics");
         return 0;
     }
 
@@ -317,7 +371,7 @@ public final class AltoClefQuestBot {
 
     private static int machines() {
         String report = buildMachineReport();
-        Path output = Minecraft.getInstance().gameDirectory.toPath().resolve("altoclef-atm10-machines.txt");
+        Path output = Minecraft.getInstance().gameDirectory.toPath().resolve("colossuscraft-atm10-machines.txt");
         try {
             Files.writeString(output, report);
             say("ATM10 machines: " + output);
@@ -331,15 +385,15 @@ public final class AltoClefQuestBot {
     private static int mine(String itemId) {
         List<String> targets = mineTargets(itemId);
         if (targets.isEmpty()) {
-            say("AltoClef: no mine target for " + itemId);
+            say("ColossusCraft: no mine target for " + itemId);
             return 0;
         }
         String command = "mine " + String.join(" ", targets);
         if (runBaritone(command)) {
-            say("AltoClef mining: " + String.join(", ", targets));
+            say("ColossusCraft mining: " + String.join(", ", targets));
             return 1;
         }
-        say("AltoClef: Baritone command failed");
+        say("ColossusCraft: Baritone command failed");
         return 0;
     }
 
@@ -347,16 +401,16 @@ public final class AltoClefQuestBot {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.getConnection() == null || mc.gameMode == null) {
-            say("AltoClef craft: no player");
+            say("ColossusCraft craft: no player");
             return 0;
         }
         if (!(player.containerMenu instanceof RecipeBookMenu<?, ?> menu)) {
-            say("AltoClef craft: open inventory or crafting table");
+            say("ColossusCraft craft: open inventory or crafting table");
             return 0;
         }
         ResourceLocation targetId = ResourceLocation.tryParse(itemId.contains(":") ? itemId : "minecraft:" + itemId);
         if (targetId == null) {
-            say("AltoClef craft: bad item " + itemId);
+            say("ColossusCraft craft: bad item " + itemId);
             return 0;
         }
 
@@ -369,7 +423,7 @@ public final class AltoClefQuestBot {
                 .findFirst()
                 .orElse(null);
         if (holder == null) {
-            say("AltoClef craft: no recipe for " + targetId);
+            say("ColossusCraft craft: no recipe for " + targetId);
             return 0;
         }
 
@@ -377,30 +431,247 @@ public final class AltoClefQuestBot {
         pendingCraftMenuId = menu.containerId;
         pendingCraftResultSlot = menu.getResultSlotIndex();
         pendingCraftDelay = 6;
-        say("AltoClef craft: " + targetId + (craftAll ? " all" : ""));
+        say("ColossusCraft craft: " + targetId + (craftAll ? " all" : ""));
         return 1;
     }
 
     private static int kill(String entityId) {
-        String id = entityId.contains(":") ? entityId : "minecraft:" + entityId;
-        Entity entity = nearestEntity(id, 96.0d);
-        if (entity == null) {
-            say("AltoClef kill: no visible " + id);
+        String id = AltoClefCompletions.resolveEntityId(entityId);
+        if (id == null) {
+            say("ColossusCraft kill: unknown entity " + entityId);
             return 0;
         }
-        BlockPos pos = entity.blockPosition();
-        if (runBaritone("goto " + pos.getX() + " " + pos.getY() + " " + pos.getZ())) {
-            say("AltoClef kill: moving to " + id + " at " + pos.toShortString());
+        // Drive the core AltoClef kill task: it hunts the nearest matching entity AND fights it
+        // (force-field, weapon auto-switch, shield) rather than merely walking to it.
+        upstreamPort.executeCommand("kill " + id);
+        say("ColossusCraft kill: hunting " + id);
+        return 1;
+    }
+
+    private static int escape() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getConnection() == null) {
+            say("escape: not connected");
+            return 0;
+        }
+        return EmergencyHome.goHome("manual escape") ? 1 : 0;
+    }
+
+    private static int setEmergencyHome(boolean on) {
+        return EmergencyHome.setEnabled(on);
+    }
+
+    private static int setAutoHunt(boolean on) {
+        upstreamPort.core().getModSettings().setAutoCollectFood(on);
+        say("Auto-hunt/gather food: " + (on ? "ON (bot gathers food on its own)" : "OFF (eats only; use /food or /get to gather)"));
+        return 1;
+    }
+
+    private static int get(String itemId, int count) {
+        AltoClefCompletions.ItemMatch match = AltoClefCompletions.resolveItem(itemId);
+        if (match == null || match.item() == null) {
+            say("ColossusCraft get: unknown item " + itemId);
+            return 0;
+        }
+        String id = match.id() == null ? itemId : match.id().toString();
+        // Elytra has no mine/craft/kill recipe (it's in an End-Ship item frame): use the dedicated task.
+        if (match.item() == net.minecraft.world.item.Items.ELYTRA) {
+            upstreamPort.start();
+            upstreamPort.core().runUserTask(new adris.altoclef.tasks.resources.GetElytraTask(),
+                    () -> say("ColossusCraft get: elytra task finished"));
+            say("ColossusCraft get: hunting an elytra (head to The End)");
             return 1;
         }
-        say("AltoClef kill: Baritone command failed");
+        adris.altoclef.tasksystem.Task task;
+        if (match.catalogueName() != null && adris.altoclef.TaskCatalogue.taskExists(match.catalogueName())) {
+            task = adris.altoclef.TaskCatalogue.getItemTask(match.catalogueName(), count);
+        } else if (adris.altoclef.TaskCatalogue.taskExists(match.item())) {
+            task = adris.altoclef.TaskCatalogue.getItemTask(match.item(), count);
+        } else {
+            task = new adris.altoclef.tasks.CollectItemTask(new adris.altoclef.util.ItemTarget(match.item(), count));
+        }
+        upstreamPort.start();
+        upstreamPort.core().runUserTask(task, () -> say("ColossusCraft get: " + id + " task finished"), true);
+        say("ColossusCraft get: " + count + "x " + id);
+        return 1;
+    }
+
+    private static int gotoPos(int x, int y, int z) {
+        if (runBaritone("goto " + x + " " + y + " " + z)) {
+            say("ColossusCraft goto: " + x + " " + y + " " + z);
+            return 1;
+        }
+        say("ColossusCraft goto: Baritone command failed");
         return 0;
     }
 
+    private static int follow(String player) {
+        upstreamPort.executeCommand("follow " + player);
+        say("ColossusCraft follow: " + player);
+        return 1;
+    }
+
+    private static int food(int units) {
+        upstreamPort.executeCommand("food " + units);
+        say("ColossusCraft food: collecting " + units + " units");
+        return 1;
+    }
+
+    private static int come() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) {
+            say("ColossusCraft come: no player");
+            return 0;
+        }
+        Entity nearest = null;
+        double bestDist = Double.POSITIVE_INFINITY;
+        for (Entity entity : mc.level.players()) {
+            if (entity == mc.player) continue;
+            double dist = entity.distanceToSqr(mc.player);
+            if (dist < bestDist) {
+                bestDist = dist;
+                nearest = entity;
+            }
+        }
+        if (nearest == null) {
+            say("ColossusCraft come: no other player visible");
+            return 0;
+        }
+        BlockPos pos = nearest.blockPosition();
+        return gotoPos(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    /**
+     * Reports which previously-opened chest(s) hold an item, nearest first, and paths to the closest.
+     * NOTE: Minecraft only sends a chest's contents to the client when it is opened, so this can only
+     * see containers that you (or the bot) have already opened — it is not an x-ray of unopened chests.
+     */
+    private static int findChest(String itemId, boolean travel) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) {
+            say("ColossusCraft findchest: no player");
+            return 0;
+        }
+        AltoClefCompletions.ItemMatch match = AltoClefCompletions.resolveItem(itemId);
+        if (match == null || match.item() == null) {
+            say("ColossusCraft findchest: unknown item " + itemId);
+            return 0;
+        }
+        ResourceLocation id = match.id();
+        net.minecraft.world.item.Item item = match.item();
+        adris.altoclef.trackers.storage.ContainerSubTracker tracker = upstreamPort.core().getContainerTracker();
+        if (tracker == null) {
+            say("ColossusCraft findchest: container tracker not ready");
+            return 0;
+        }
+        net.minecraft.world.phys.Vec3 me = mc.player.position();
+        String dim = mc.player.level().dimension().location().toString();
+        List<adris.altoclef.trackers.storage.ContainerCache> found = new java.util.ArrayList<>(tracker.getContainersWithItem(item));
+        // Only show containers in the dimension we're currently in (positions aren't unique across dims).
+        found.removeIf(c -> !c.getDimension().isEmpty() && !c.getDimension().equals(dim));
+        found.sort(java.util.Comparator.comparingDouble(c -> c.getBlockPos().getCenter().distanceToSqr(me)));
+        if (found.isEmpty()) {
+            say("ColossusCraft findchest: no opened chest is known to hold " + id.getPath() + " (open chests to index them)");
+            return 0;
+        }
+        StringBuilder sb = new StringBuilder("ColossusCraft findchest " + id.getPath() + ": ");
+        int shown = Math.min(found.size(), 5);
+        for (int i = 0; i < shown; i++) {
+            adris.altoclef.trackers.storage.ContainerCache c = found.get(i);
+            BlockPos p = c.getBlockPos();
+            sb.append(c.getItemCount(item)).append("x @ ").append(p.toShortString());
+            if (i < shown - 1) sb.append(", ");
+        }
+        if (found.size() > shown) sb.append(" (+" + (found.size() - shown) + " more)");
+        say(sb.toString());
+        if (travel) {
+            BlockPos p = found.get(0).getBlockPos();
+            gotoPos(p.getX(), p.getY(), p.getZ());
+        }
+        return 1;
+    }
+
+    private static boolean emergencyHomeEnabled = true;
+    private static int homeCooldown = 0;
+
+    /** Fires ATM10's /home as a last-ditch escape when death is imminent. Always active (safety). */
+    private static void emergencyTick() {
+        if (!emergencyHomeEnabled) {
+            return;
+        }
+        if (homeCooldown > 0) {
+            homeCooldown--;
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer p = mc.player;
+        if (p == null || mc.getConnection() == null || !p.isAlive()) {
+            return;
+        }
+        String reason = emergencyReason(mc, p);
+        if (reason == null) {
+            return;
+        }
+        runBaritone("stop");
+        mc.getConnection().sendCommand("home");
+        say("EMERGENCY /home: " + reason);
+        homeCooldown = 200; // ~10s, avoid spamming while the teleport resolves
+    }
+
+    private static String emergencyReason(Minecraft mc, LocalPlayer p) {
+        float health = p.getHealth() + p.getAbsorptionAmount();
+        if (p.isCreative() || p.isSpectator()) {
+            return null;
+        }
+        if (health <= 6.0f) {
+            return "critical health (" + (int) health + ")";
+        }
+        if (p.isInLava() && !p.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE)) {
+            return "lava";
+        }
+        if (p.hasEffect(net.minecraft.world.effect.MobEffects.WITHER) && health <= 12.0f) {
+            return "wither";
+        }
+        if (p.isOnFire() && !p.hasEffect(net.minecraft.world.effect.MobEffects.FIRE_RESISTANCE) && health <= 10.0f) {
+            return "burning";
+        }
+        if (p.isInWater() && p.getAirSupply() <= 40) {
+            return "drowning";
+        }
+        boolean falling = !p.onGround() && !p.isInWater() && !p.onClimbable() && p.getDeltaMovement().y < -0.5;
+        if (falling) {
+            int minY = mc.level == null ? -64 : mc.level.getMinBuildHeight();
+            if (p.getY() < minY + 16 || (adris.altoclef.util.helpers.WorldHelper.getCurrentDimension() == adris.altoclef.util.Dimension.END && p.getY() < 50)) {
+                return "void fall";
+            }
+            boolean hasWater = hasStoredItem(net.minecraft.world.item.Items.WATER_BUCKET);
+            boolean slowFall = p.hasEffect(net.minecraft.world.effect.MobEffects.SLOW_FALLING);
+            float fallDamage = p.fallDistance - 3.0f;
+            if (fallDamage >= health - 2.0f && !hasWater && !slowFall) {
+                return "lethal fall with no water bucket";
+            }
+        }
+        return null;
+    }
+
+    private static boolean hasStoredItem(net.minecraft.world.item.Item item) {
+        try {
+            return upstreamPort.core().getItemStorage().hasItem(item);
+        } catch (Throwable ignored) {
+            Minecraft mc = Minecraft.getInstance();
+            return mc.player != null && mc.player.getInventory().contains(new ItemStack(item));
+        }
+    }
+
     private static void clientTick(ClientTickEvent.Post event) {
+        // ATM10 addon must never interfere with the vanilla AltoClef port: stay fully inert
+        // (no FTB packets, no craft-menu/slot manipulation) unless explicitly enabled via /atmquests on.
+        if (!enabled) {
+            return;
+        }
         flushFtbPayloadQueue();
         tickPendingCraft();
-        if (!enabled || ++tick % 40 != 0) {
+        if (++tick % 40 != 0) {
             return;
         }
         if (submitReadyTasks() > 0) {
@@ -434,7 +705,7 @@ public final class AltoClefQuestBot {
                 return;
             }
             if (goalMode == GoalMode.ATM_STAR && tick % 400 == 0) {
-                say("AltoClef quest blocker: " + target.itemId + " " + target.progress + "/" + target.required + " quest=" + target.questTitle + " action=" + targetAction(target));
+                say("ColossusCraft quest blocker: " + target.itemId + " " + target.progress + "/" + target.required + " quest=" + target.questTitle + " action=" + targetAction(target));
             }
             return;
         }
@@ -447,7 +718,7 @@ public final class AltoClefQuestBot {
             if (runBaritone("mine " + mineTarget)) {
                 activeTaskId = target.taskId;
                 activeMineTarget = mineTarget;
-                say("AltoClef quest mine: " + target.itemId + " -> " + mineTarget);
+                say("ColossusCraft quest mine: " + target.itemId + " -> " + mineTarget);
             }
         }
     }
@@ -467,7 +738,7 @@ public final class AltoClefQuestBot {
                     if (runBaritone(command)) {
                         activeTaskId = target.taskId;
                         activeMineTarget = command;
-                        say("AltoClef quest kill: allthemodium:piglich at " + pos.toShortString());
+                        say("ColossusCraft quest kill: allthemodium:piglich at " + pos.toShortString());
                     }
                 }
                 return true;
@@ -477,7 +748,7 @@ public final class AltoClefQuestBot {
             runBaritone("stop");
             activeTaskId = target.taskId;
             activeMineTarget = key;
-            say("AltoClef quest special: " + action + " quest=" + target.questTitle);
+            say("ColossusCraft quest special: " + action + " quest=" + target.questTitle);
         }
         return true;
     }
@@ -488,7 +759,7 @@ public final class AltoClefQuestBot {
             runBaritone("stop");
             activeTaskId = taskId;
             activeMineTarget = key;
-            say("AltoClef quest route: " + gate.action);
+            say("ColossusCraft quest route: " + gate.action);
         }
     }
 
@@ -498,7 +769,7 @@ public final class AltoClefQuestBot {
             runBaritone("stop");
             activeTaskId = step.taskId;
             activeMineTarget = key;
-            say("AltoClef quest step: " + step.action + " quest=" + step.questTitle);
+            say("ColossusCraft quest step: " + step.action + " quest=" + step.questTitle);
         }
     }
 
@@ -510,14 +781,14 @@ public final class AltoClefQuestBot {
         if (blocker.action().startsWith("route ") || blocker.action().equals("quest/reward gate") || blocker.action().equals("external craft/machine")) {
             if (tick % 1200 == 0) {
                 runBaritone("stop");
-                say("AltoClef star blocker: " + describeBlocker(blocker));
+                say("ColossusCraft star blocker: " + describeBlocker(blocker));
             }
             return;
         }
         List<String> mineTargets = autoMineTargets(blocker.itemId());
         if (mineTargets.isEmpty()) {
             if (tick % 1200 == 0) {
-                say("AltoClef star blocker: " + describeBlocker(blocker));
+                say("ColossusCraft star blocker: " + describeBlocker(blocker));
             }
             return;
         }
@@ -526,7 +797,7 @@ public final class AltoClefQuestBot {
             if (runBaritone("mine " + mineTarget)) {
                 activeTaskId = Long.MIN_VALUE + 1;
                 activeMineTarget = mineTarget;
-                say("AltoClef star mine: " + displayItem(blocker.itemId()) + " -> " + mineTarget);
+                say("ColossusCraft star mine: " + displayItem(blocker.itemId()) + " -> " + mineTarget);
             }
         }
     }
@@ -931,7 +1202,7 @@ public final class AltoClefQuestBot {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (file == null || data == null || player == null) {
-            return "AltoClef ATM10 audit\nFTB Quests not synced.\n";
+            return "ColossusCraft ATM10 audit\nFTB Quests not synced.\n";
         }
 
         Map<String, Integer> total = new LinkedHashMap<>();
@@ -973,7 +1244,7 @@ public final class AltoClefQuestBot {
 
         missingStar.sort(Comparator.comparingLong(target -> target.required - target.progress));
         StringBuilder report = new StringBuilder();
-        report.append("AltoClef ATM10 audit\n");
+        report.append("ColossusCraft ATM10 audit\n");
         report.append("goal=").append(goalMode.label).append('\n');
         report.append("source=FTB Quests synced client file\n\n");
         report.append("task totals=").append(total).append('\n');
@@ -983,12 +1254,12 @@ public final class AltoClefQuestBot {
         report.append("mineable item tasks=").append(mineable).append('\n');
         report.append("craft/machine item tasks=").append(machine).append('\n');
         report.append("auto-submit checkmarks=").append(autoSubmit).append('\n');
-        report.append("kill tasks=PvE Guard can fight nearby, travel/spawn setup still needed\n");
+        report.append("kill tasks=ColossusCraft Guard can fight nearby, travel/spawn setup still needed\n");
         report.append("dimension/biome/structure/location=detected by FTB Quests, route/setup still needed\n");
         report.append("machinery/reactors=covered by ATM Star plan gates; machine-specific IO still required\n\n");
         StarBlocker blocker = findStarBlocker();
         report.append("ATM Star live blocker=").append(blocker == null ? "none in carried inventory" : describeBlocker(blocker)).append("\n");
-        report.append("full star plan=altoclef-atm-star-plan.txt via /atmquests starplan\n\n");
+        report.append("full star plan=colossuscraft-atm-star-plan.txt via /atmquests starplan\n\n");
         report.append("ATM Star next blockers\n");
         for (QuestTarget target : missingStar.stream().limit(30).toList()) {
             report.append("- ").append(target.itemId)
@@ -1008,7 +1279,7 @@ public final class AltoClefQuestBot {
         ClientQuestFile file = questFile();
         TeamData data = teamData(file);
         StringBuilder report = new StringBuilder();
-        report.append("AltoClef snapshot\n");
+        report.append("ColossusCraft snapshot\n");
         if (player == null) {
             report.append("no player\n");
             return report.toString();
@@ -1166,7 +1437,7 @@ public final class AltoClefQuestBot {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         StringBuilder report = new StringBuilder();
-        report.append("AltoClef ATM10 Star plan\n");
+        report.append("ColossusCraft ATM10 Star plan\n");
         report.append("source=local ATM10 KubeJS + FTB Quests client state\n");
         report.append("final_recipe=kubejs/server_scripts/modpack/runic_multis/recipes/star_altar.js\n");
         report.append("component_recipes=kubejs/server_scripts/modpack/att_items.js, atm_alloys.js, mini_portals.js\n\n");

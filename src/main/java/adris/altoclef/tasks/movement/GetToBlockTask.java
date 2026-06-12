@@ -15,6 +15,11 @@ public class GetToBlockTask extends Task {
         this(target, null);
     }
 
+    // Upstream's "preferStairs" flag isn't used by our pathing; accept it for API parity.
+    public GetToBlockTask(BlockPos target, boolean preferStairs) {
+        this(target, null);
+    }
+
     public GetToBlockTask(BlockPos target, Dimension dimension) {
         this.target = target;
         this.dimension = dimension;

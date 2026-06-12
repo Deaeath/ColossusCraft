@@ -2,8 +2,10 @@ package adris.altoclef.tasks.container;
 
 import adris.altoclef.AltoClef;
 import adris.altoclef.tasks.CollectItemTask;
+import adris.altoclef.tasks.ResourceTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
+import adris.altoclef.util.SmeltTarget;
 import adris.altoclef.util.helpers.LookHelper;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.slots.FurnaceSlot;
@@ -26,22 +28,27 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.Arrays;
 
-public class SmeltInFurnaceTask extends Task {
+public class SmeltInFurnaceTask extends ResourceTask {
     private static final Item[] FUELS = {Items.COAL, Items.CHARCOAL, Items.OAK_PLANKS, Items.SPRUCE_PLANKS, Items.BIRCH_PLANKS};
     private final ItemTarget target;
     private int useCooldown;
 
     public SmeltInFurnaceTask(ItemTarget target) {
+        super(target);
         this.target = target;
     }
 
+    public SmeltInFurnaceTask(SmeltTarget smeltTarget) {
+        this(smeltTarget.getItem());
+    }
+
     @Override
-    protected void onStart(AltoClef mod) {
+    protected void onResourceStart(AltoClef mod) {
         useCooldown = 0;
     }
 
     @Override
-    protected Task onTick(AltoClef mod) {
+    protected Task onResourceTick(AltoClef mod) {
         if (isFinished(mod)) return null;
         RecipeHolder<?> holder = findCookingRecipe(mod);
         if (holder == null) return null;
@@ -168,7 +175,7 @@ public class SmeltInFurnaceTask extends Task {
     }
 
     @Override
-    protected void onStop(AltoClef mod, Task interruptTask) {
+    protected void onResourceStop(AltoClef mod, Task interruptTask) {
     }
 
     @Override

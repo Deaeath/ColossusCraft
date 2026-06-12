@@ -1,28 +1,34 @@
 package adris.altoclef.tasks.container;
 
 import adris.altoclef.AltoClef;
+import adris.altoclef.tasks.ResourceTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
 
-public class UpgradeInSmithingTableTask extends Task {
+public class UpgradeInSmithingTableTask extends ResourceTask {
     private final ItemTarget target;
 
     public UpgradeInSmithingTableTask(ItemTarget target) {
+        super(target);
         this.target = target;
     }
 
-    @Override
-    protected void onStart(AltoClef mod) {
+    public UpgradeInSmithingTableTask(ItemTarget tool, ItemTarget materials, ItemTarget result) {
+        this(result);
     }
 
     @Override
-    protected Task onTick(AltoClef mod) {
+    protected void onResourceStart(AltoClef mod) {
+    }
+
+    @Override
+    protected Task onResourceTick(AltoClef mod) {
         setDebugState("Smithing upgrade " + target);
         return null;
     }
 
     @Override
-    protected void onStop(AltoClef mod, Task interruptTask) {
+    protected void onResourceStop(AltoClef mod, Task interruptTask) {
     }
 
     @Override

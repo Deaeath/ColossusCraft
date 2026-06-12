@@ -6,6 +6,7 @@ import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.helpers.StorageHelper;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
 
 import java.util.Arrays;
 
@@ -15,6 +16,14 @@ public class EquipArmorTask extends Task {
 
     public EquipArmorTask(ItemTarget... targets) {
         this.targets = targets;
+    }
+
+    public EquipArmorTask(Item item) {
+        this(new ItemTarget(item, 1));
+    }
+
+    public EquipArmorTask(Item[] items) {
+        this(Arrays.stream(items).map(item -> new ItemTarget(item, 1)).toArray(ItemTarget[]::new));
     }
 
     @Override

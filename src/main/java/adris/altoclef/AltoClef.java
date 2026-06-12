@@ -2,7 +2,16 @@ package adris.altoclef;
 
 import adris.altoclef.chains.UserTaskChain;
 import adris.altoclef.chains.MobDefenseChain;
+import adris.altoclef.chains.FoodChain;
+import adris.altoclef.chains.DeathMenuChain;
+import adris.altoclef.chains.MLGBucketFallChain;
+import adris.altoclef.chains.WorldSurvivalChain;
+import adris.altoclef.chains.PlayerInteractionFixChain;
+import adris.altoclef.control.KillAura;
+import adris.altoclef.util.baritone.AltoClefSettings;
 import adris.altoclef.commandsystem.CommandException;
+import baritone.api.BaritoneAPI;
+import baritone.api.IBaritone;
 import adris.altoclef.commandsystem.CommandExecutor;
 import adris.altoclef.tasksystem.TaskRunner;
 import adris.altoclef.tasksystem.Task;
@@ -34,6 +43,13 @@ public class AltoClef {
     private final TaskRunner taskRunner = new TaskRunner(this);
     private final UserTaskChain userTaskChain = new UserTaskChain(taskRunner);
     private final MobDefenseChain mobDefenseChain = new MobDefenseChain(taskRunner);
+    private final FoodChain foodChain = new FoodChain(taskRunner);
+    private final DeathMenuChain deathMenuChain = new DeathMenuChain(taskRunner);
+    private final MLGBucketFallChain mlgBucketChain = new MLGBucketFallChain(taskRunner);
+    private final WorldSurvivalChain worldSurvivalChain = new WorldSurvivalChain(taskRunner);
+    private final PlayerInteractionFixChain playerInteractionFixChain = new PlayerInteractionFixChain(taskRunner);
+    private final KillAura killAura = new KillAura();
+    private final AltoClefSettings extraBaritoneSettings = new AltoClefSettings();
     private final InputControls inputControls = new InputControls();
     private final PlayerExtraController controllerExtras = new PlayerExtraController(this);
     private final SlotHandler slotHandler = new SlotHandler(this);
@@ -83,8 +99,48 @@ public class AltoClef {
         userTaskChain.runTask(this, task, onFinish);
     }
 
+    public void runUserTask(Task task, Runnable onFinish, boolean prioritizeOverMobDefense) {
+        userTaskChain.runTask(this, task, onFinish, prioritizeOverMobDefense);
+    }
+
     public InputControls getInputControls() {
         return inputControls;
+    }
+
+    public KillAura getKillAura() {
+        return killAura;
+    }
+
+    public FoodChain getFoodChain() {
+        return foodChain;
+    }
+
+    public MobDefenseChain getMobDefenseChain() {
+        return mobDefenseChain;
+    }
+
+    public MLGBucketFallChain getMLGBucketChain() {
+        return mlgBucketChain;
+    }
+
+    public WorldSurvivalChain getWorldSurvivalChain() {
+        return worldSurvivalChain;
+    }
+
+    public PlayerInteractionFixChain getPlayerInteractionFixChain() {
+        return playerInteractionFixChain;
+    }
+
+    public AltoClefSettings getExtraBaritoneSettings() {
+        return extraBaritoneSettings;
+    }
+
+    public IBaritone getClientBaritone() {
+        return BaritoneAPI.getProvider().getPrimaryBaritone();
+    }
+
+    public baritone.api.Settings getClientBaritoneSettings() {
+        return BaritoneAPI.getSettings();
     }
 
     public PlayerExtraController getControllerExtras() {

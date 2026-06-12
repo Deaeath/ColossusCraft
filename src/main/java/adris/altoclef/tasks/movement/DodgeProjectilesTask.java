@@ -4,6 +4,18 @@ import adris.altoclef.AltoClef;
 import adris.altoclef.tasksystem.Task;
 
 public class DodgeProjectilesTask extends Task {
+    private final double distanceHorizontal;
+    private final double distanceVertical;
+
+    public DodgeProjectilesTask() {
+        this(2, 10);
+    }
+
+    public DodgeProjectilesTask(double distanceHorizontal, double distanceVertical) {
+        this.distanceHorizontal = distanceHorizontal;
+        this.distanceVertical = distanceVertical;
+    }
+
     @Override
     protected void onStart(AltoClef mod) {
     }

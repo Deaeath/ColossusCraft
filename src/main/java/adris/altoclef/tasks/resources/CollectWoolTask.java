@@ -1,48 +1,110 @@
 package adris.altoclef.tasks.resources;
 
+import adris.altoclef.AltoClef;
+import adris.altoclef.tasks.ResourceTask;
+import adris.altoclef.tasks.entity.ShearSheepTask;
+import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
-import net.minecraft.world.item.DyeColor;
+import adris.altoclef.util.MiningRequirement;
+import adris.altoclef.util.helpers.ItemHelper;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.DyeColor;
 
-public class CollectWoolTask extends ResourceItemTask {
-    private static final Item[] WOOL = {
-            Items.WHITE_WOOL, Items.ORANGE_WOOL, Items.MAGENTA_WOOL, Items.LIGHT_BLUE_WOOL,
-            Items.YELLOW_WOOL, Items.LIME_WOOL, Items.PINK_WOOL, Items.GRAY_WOOL,
-            Items.LIGHT_GRAY_WOOL, Items.CYAN_WOOL, Items.PURPLE_WOOL, Items.BLUE_WOOL,
-            Items.BROWN_WOOL, Items.GREEN_WOOL, Items.RED_WOOL, Items.BLACK_WOOL
-    };
+import java.util.Arrays;
+import java.util.HashSet;
 
-    public CollectWoolTask(int count) {
-        super(new ItemTarget(WOOL, count));
+public class CollectWoolTask extends ResourceTask {
+
+    private final int _count;
+
+    private final HashSet<DyeColor> _colors;
+    private final Item[] _wools;
+
+    public CollectWoolTask(DyeColor[] colors, int count) {
+        super(new ItemTarget(ItemHelper.WOOL, count));
+        _colors = new HashSet<>(Arrays.asList(colors));
+        _count = count;
+        _wools = getWoolColorItems(colors);
     }
 
     public CollectWoolTask(DyeColor color, int count) {
-        super(woolFor(color), count);
+        this(new DyeColor[]{color}, count);
     }
 
-    public CollectWoolTask(DyeColor[] colors, int count) {
-        super(new ItemTarget(java.util.Arrays.stream(colors).map(CollectWoolTask::woolFor).toArray(Item[]::new), count));
+    public CollectWoolTask(int count) {
+        this(DyeColor.values(), count);
     }
 
-    private static Item woolFor(DyeColor color) {
-        return switch (color) {
-            case WHITE -> Items.WHITE_WOOL;
-            case ORANGE -> Items.ORANGE_WOOL;
-            case MAGENTA -> Items.MAGENTA_WOOL;
-            case LIGHT_BLUE -> Items.LIGHT_BLUE_WOOL;
-            case YELLOW -> Items.YELLOW_WOOL;
-            case LIME -> Items.LIME_WOOL;
-            case PINK -> Items.PINK_WOOL;
-            case GRAY -> Items.GRAY_WOOL;
-            case LIGHT_GRAY -> Items.LIGHT_GRAY_WOOL;
-            case CYAN -> Items.CYAN_WOOL;
-            case PURPLE -> Items.PURPLE_WOOL;
-            case BLUE -> Items.BLUE_WOOL;
-            case BROWN -> Items.BROWN_WOOL;
-            case GREEN -> Items.GREEN_WOOL;
-            case RED -> Items.RED_WOOL;
-            case BLACK -> Items.BLACK_WOOL;
-        };
+    private static Item[] getWoolColorItems(DyeColor[] colors) {
+        Item[] result = new Item[colors.length];
+        for (int i = 0; i < result.length; ++i) {
+            result[i] = ItemHelper.getColorfulItems(colors[i]).wool;
+        }
+        return result;
     }
+
+    @Override
+    protected boolean shouldAvoidPickingUp(AltoClef mod) {
+        return false;
+    }
+
+    @Override
+    protected void onResourceStart(AltoClef mod) {
+        mod.getBlockTracker().trackBlock(ItemHelper.itemsToBlocks(_wools));
+    }
+
+    @Override
+    protected Task onResourceTick(AltoClef mod) {
+
+        // TODO: If we don't find good color wool blocks
+        // and we DONT find good color sheep:
+        // USE DYES + REGULAR WOOL TO CRAFT THE WOOL COLOR!!
+
+        // If we find a wool block, break it.
+        Block[] woolBlocks = ItemHelper.itemsToBlocks(_wools);
+        if (mod.getBlockTracker().anyFound(woolBlocks)) {
+            return new MineAndCollectTask(new ItemTarget(_wools), woolBlocks, MiningRequirement.HAND);
+        }
+
+        // If we have shears, right click nearest sheep
+        // Otherwise, kill + loot wool.
+
+        // Dimension
+        if (isInWrongDimension(mod) && !mod.getEntityTracker().entityFound(Sheep.class)) {
+            return getToCorrectDimensionTask(mod);
+        }
+
+        if (mod.getItemStorage().hasItem(Items.SHEARS)) {
+            // Shear sheep.
+            return new ShearSheepTask();
+        }
+
+        // Only option left is to Kill la Kill.
+        return new KillAndLootTask(Sheep.class, entity -> {
+            if (entity instanceof Sheep sheep) {
+                // Hunt sheep of the same color.
+                return _colors.contains(sheep.getColor()) && !sheep.isSheared();
+            }
+            return false;
+        }, new ItemTarget(_wools, _count));
+    }
+
+    @Override
+    protected void onResourceStop(AltoClef mod, Task interruptTask) {
+        mod.getBlockTracker().stopTracking(ItemHelper.itemsToBlocks(_wools));
+    }
+
+    @Override
+    protected boolean isEqualResource(ResourceTask other) {
+        return other instanceof CollectWoolTask && ((CollectWoolTask) other)._count == _count;
+    }
+
+    @Override
+    protected String toDebugStringName() {
+        return "Collect " + _count + " wool.";
+    }
+
 }

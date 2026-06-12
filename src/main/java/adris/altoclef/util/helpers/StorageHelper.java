@@ -6,9 +6,11 @@ import adris.altoclef.TaskCatalogue;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.MiningRequirement;
 import adris.altoclef.util.CraftingRecipe;
+import adris.altoclef.util.RecipeTarget;
 import adris.altoclef.util.slots.CursorSlot;
 import adris.altoclef.util.slots.PlayerSlot;
 import adris.altoclef.util.slots.Slot;
+import adris.altoclef.mixins.AbstractFurnaceScreenHandlerAccessor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -23,6 +25,8 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.AbstractFurnaceMenu;
+import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.DiggerItem;
@@ -178,8 +182,16 @@ public final class StorageHelper {
         return Arrays.stream(target.getMatches()).anyMatch(item -> isArmorEquipped(mod, item));
     }
 
+    public static boolean isArmorEquipped(AltoClef mod, Item[] items) {
+        return Arrays.stream(items).anyMatch(item -> isArmorEquipped(mod, item));
+    }
+
     public static boolean isArmorEquippedAll(AltoClef mod, ItemTarget... targets) {
         return Arrays.stream(targets).allMatch(target -> isArmorEquipped(mod, target));
+    }
+
+    public static boolean isArmorEquippedAll(AltoClef mod, Item[] items) {
+        return Arrays.stream(items).allMatch(item -> isArmorEquipped(mod, item));
     }
 
     public static Optional<Slot> getGarbageSlot(AltoClef mod) {
@@ -245,7 +257,7 @@ public final class StorageHelper {
     public static int calculateInventoryFoodScore(AltoClef mod) {
         return mod.getItemStorage().getItemStacksPlayerInventory(false).stream()
                 .filter(stack -> stack.getComponents().has(net.minecraft.core.component.DataComponents.FOOD))
-                .mapToInt(ItemStack::getCount)
+                .mapToInt(stack -> stack.getCount() * stack.get(net.minecraft.core.component.DataComponents.FOOD).nutrition())
                 .sum();
     }
 
@@ -261,30 +273,71 @@ public final class StorageHelper {
         return itemTargetsMet(mod, targets);
     }
 
+    public static boolean hasRecipeMaterialsOrTarget(AltoClef mod, RecipeTarget... targets) {
+        if (targets == null) return true;
+        for (RecipeTarget target : targets) {
+            if (target == null) continue;
+            if (mod.getItemStorage().getItemCount(target.getOutputItem()) >= target.getTargetCount()) continue;
+            CraftingRecipe recipe = target.getRecipe();
+            if (recipe == null) return false;
+            int repeats = (int) Math.ceil((target.getTargetCount() - mod.getItemStorage().getItemCount(target.getOutputItem())) / (double) recipe.outputCount());
+            for (int i = 0; i < recipe.getSlotCount(); i++) {
+                ItemTarget slot = recipe.getSlot(i);
+                if (slot == null || slot.isEmpty()) continue;
+                if (mod.getItemStorage().getItemCount(slot.getMatches()) < repeats) return false;
+            }
+        }
+        return true;
+    }
+
     public static void instantFillRecipeViaBook(AltoClef mod, CraftingRecipe recipe, Item outputItem, boolean craftAll) {
     }
 
+    // Furnace/smoker/blast all extend AbstractFurnaceMenu; the open menu (if any) is whichever one.
+    private static ContainerData furnaceData() {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player != null && player.containerMenu instanceof AbstractFurnaceMenu furnace) {
+            return ((AbstractFurnaceScreenHandlerAccessor) furnace).getData();
+        }
+        return null;
+    }
+
+    // ContainerData: [0]=litTime [1]=litDuration [2]=cookingProgress [3]=cookingTotalTime
+    private static double cookPercent() {
+        ContainerData d = furnaceData();
+        if (d == null) return -1;
+        int total = d.get(3);
+        return total <= 0 ? 0 : (double) d.get(2) / total;
+    }
+
+    private static double fuelPercent() {
+        ContainerData d = furnaceData();
+        if (d == null) return -1;
+        int duration = d.get(1);
+        return duration <= 0 ? (double) d.get(0) / 200.0 : (double) d.get(0) / duration;
+    }
+
     public static double getFurnaceCookPercent() {
-        return 0;
+        return cookPercent();
     }
 
     public static double getFurnaceFuel() {
-        return 0;
+        return fuelPercent();
     }
 
     public static double getSmokerCookPercent() {
-        return 0;
+        return cookPercent();
     }
 
     public static double getSmokerFuel() {
-        return 0;
+        return fuelPercent();
     }
 
     public static double getBlastFurnaceCookPercent() {
-        return 0;
+        return cookPercent();
     }
 
     public static double getBlastFurnaceFuel() {
-        return 0;
+        return fuelPercent();
     }
 }

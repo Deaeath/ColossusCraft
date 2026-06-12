@@ -1,6 +1,5 @@
 package adris.altoclef.util.slots;
 
-import adris.altoclef.Debug;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractFurnaceScreen;
@@ -147,11 +146,7 @@ public abstract class Slot {
         }
         int slotCount = handler != null ? handler.slots.size() : 0;
         int window = getWindowSlot();
-        boolean result = window >= (slotCount - 36);
-        if (!result && window >= 0) {
-            Debug.logWarning("Slot outside player inventory: " + this);
-        }
-        return result;
+        return window >= (slotCount - 36);
     }
 
     enum ContainerType {

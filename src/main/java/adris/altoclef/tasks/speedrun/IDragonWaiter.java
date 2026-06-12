@@ -1,8 +1,9 @@
 package adris.altoclef.tasks.speedrun;
 
-import adris.altoclef.AltoClef;
-import adris.altoclef.tasksystem.Task;
+import net.minecraft.core.BlockPos;
 
 public interface IDragonWaiter {
-    Task getWaitTask(AltoClef mod);
+    void setExitPortalTop(BlockPos top);
+
+    void setPerchState(boolean perching);
 }

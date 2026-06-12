@@ -4,11 +4,14 @@ import adris.altoclef.AltoClef;
 import adris.altoclef.tasks.movement.GetToBlockTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.helpers.LookHelper;
+import baritone.api.utils.input.Input;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
 
 public class DestroyBlockTask extends Task {
     private final BlockPos pos;
-    private int commandCooldown;
+    private boolean startedDestroying;
 
     public DestroyBlockTask(BlockPos pos) {
         this.pos = pos;
@@ -16,7 +19,7 @@ public class DestroyBlockTask extends Task {
 
     @Override
     protected void onStart(AltoClef mod) {
-        commandCooldown = 0;
+        startedDestroying = false;
     }
 
     @Override
@@ -25,13 +28,25 @@ public class DestroyBlockTask extends Task {
         if (mod.getPlayer() != null && mod.getPlayer().blockPosition().distSqr(pos) > 25) {
             return new GetToBlockTask(pos);
         }
-        if (commandCooldown-- <= 0) {
-            commandCooldown = 40;
-            mod.runBaritone("mine " + pos.getX() + " " + pos.getY() + " " + pos.getZ());
-        }
         LookHelper.lookAt(mod, pos);
+        Direction face = getHitFace(mod);
+        if (mod.getController() != null) {
+            if (!startedDestroying) {
+                mod.getController().startDestroyBlock(pos, face);
+                startedDestroying = true;
+            }
+            mod.getController().continueDestroyBlock(pos, face);
+        }
+        mod.getInputControls().hold(Input.CLICK_LEFT);
         setDebugState("Destroy " + pos.toShortString());
         return null;
+    }
+
+    private Direction getHitFace(AltoClef mod) {
+        if (mod.getPlayer() == null) return Direction.UP;
+        Vec3 eye = mod.getPlayer().getEyePosition();
+        Vec3 center = Vec3.atCenterOf(pos);
+        return Direction.getNearest(eye.x - center.x, eye.y - center.y, eye.z - center.z);
     }
 
     @Override
@@ -42,6 +57,10 @@ public class DestroyBlockTask extends Task {
     @Override
     protected void onStop(AltoClef mod, Task interruptTask) {
         mod.stopPathing();
+        if (mod.getController() != null) {
+            mod.getController().stopDestroyBlock();
+        }
+        mod.getInputControls().release(Input.CLICK_LEFT);
     }
 
     @Override

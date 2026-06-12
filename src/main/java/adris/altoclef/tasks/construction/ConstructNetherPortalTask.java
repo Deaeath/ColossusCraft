@@ -27,6 +27,7 @@ public class ConstructNetherPortalTask extends Task {
         base = null;
         commandCooldown = 0;
         useCooldown = 0;
+        mod.getBlockTracker().trackBlock(Blocks.NETHER_PORTAL);
     }
 
     @Override
@@ -144,6 +145,7 @@ public class ConstructNetherPortalTask extends Task {
 
     @Override
     protected void onStop(AltoClef mod, Task interruptTask) {
+        mod.getBlockTracker().stopTracking(Blocks.NETHER_PORTAL);
         mod.stopPathing();
     }
 

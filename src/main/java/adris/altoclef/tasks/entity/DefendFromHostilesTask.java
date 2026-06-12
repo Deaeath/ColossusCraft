@@ -1,51 +1,56 @@
 package adris.altoclef.tasks.entity;
 
 import adris.altoclef.AltoClef;
+import adris.altoclef.control.KillAura;
 import adris.altoclef.tasksystem.Task;
-import adris.altoclef.util.helpers.LookHelper;
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.InteractionHand;
+import baritone.api.utils.input.Input;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Creeper;
 
+/**
+ * Reactive self-defense: feed nearby hostiles into KillAura's force field, which auto-switches to
+ * the best weapon, raises a shield between swings, and attacks on a recovered cooldown.
+ */
 public class DefendFromHostilesTask extends Task {
-    private int attackCooldown;
+
+    private static final double DEFEND_RANGE_SQR = 7.0 * 7.0;
 
     @Override
     protected void onStart(AltoClef mod) {
-        attackCooldown = 0;
     }
 
     @Override
     protected Task onTick(AltoClef mod) {
-        Entity target = nearestHostile(mod);
-        if (target == null) return null;
-        mod.stopPathing();
-        LookHelper.lookAt(mod, target.getEyePosition());
-        if (attackCooldown-- <= 0 && Minecraft.getInstance().gameMode != null && mod.getPlayer() != null) {
-            attackCooldown = 10;
-            Minecraft.getInstance().gameMode.attack(mod.getPlayer(), target);
-            mod.getPlayer().swing(InteractionHand.MAIN_HAND);
-        }
-        setDebugState("Defend from " + target.getType().toShortString());
-        return null;
-    }
-
-    private Entity nearestHostile(AltoClef mod) {
         if (mod.getPlayer() == null) return null;
-        Entity best = null;
-        double bestDist = Double.POSITIVE_INFINITY;
-        for (Entity hostile : mod.getEntityTracker().getHostiles()) {
-            double dist = hostile.distanceToSqr(mod.getPlayer());
-            if (dist < bestDist && dist <= 5.5 * 5.5) {
-                best = hostile;
-                bestDist = dist;
+        // Swelling creeper close by: stop, raise shield, walk back out of the blast (don't melee it).
+        for (Entity h : mod.getEntityTracker().getHostiles()) {
+            if (h instanceof Creeper c && c.getSwelling(1.0f) > 0.0f && c.distanceToSqr(mod.getPlayer()) < 36.0) {
+                mod.getKillAura().stopShielding(mod);
+                mod.getInputControls().hold(Input.MOVE_BACK);
+                if (mod.getItemStorage().hasItemInventoryOnly(net.minecraft.world.item.Items.SHIELD)) {
+                    mod.getInputControls().hold(Input.CLICK_RIGHT);
+                }
+                setDebugState("Evade creeper");
+                return null;
             }
         }
-        return best;
+        mod.getInputControls().release(Input.MOVE_BACK);
+        KillAura killAura = mod.getKillAura();
+        killAura.tickStart();
+        for (Entity hostile : mod.getEntityTracker().getHostiles()) {
+            if (hostile.distanceToSqr(mod.getPlayer()) <= DEFEND_RANGE_SQR) {
+                killAura.applyAura(hostile);
+            }
+        }
+        killAura.tickEnd(mod);
+        setDebugState("Defending");
+        return null;
     }
 
     @Override
     protected void onStop(AltoClef mod, Task interruptTask) {
+        mod.getKillAura().stopShielding(mod);
+        mod.getInputControls().release(Input.MOVE_BACK);
     }
 
     @Override

@@ -7,7 +7,9 @@ import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.helpers.LookHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -23,11 +25,28 @@ public class InteractWithBlockTask extends Task {
         this(null, Direction.UP, target, true);
     }
 
+    public InteractWithBlockTask(Item item, BlockPos target) {
+        this(new ItemTarget(item, 1), Direction.UP, target, true);
+    }
+
+    public InteractWithBlockTask(ItemTarget item, BlockPos target, boolean stopOnInteract) {
+        this(item, Direction.UP, target, stopOnInteract);
+    }
+
+    public InteractWithBlockTask(ItemTarget item, BlockPos target, boolean stopOnInteract, Vec3i side) {
+        this(item, directionFrom(side), target, stopOnInteract);
+    }
+
     public InteractWithBlockTask(ItemTarget item, Direction direction, BlockPos target, boolean stopOnInteract) {
         this.item = item;
         this.direction = direction;
         this.target = target;
         this.stopOnInteract = stopOnInteract;
+    }
+
+    private static Direction directionFrom(Vec3i side) {
+        Direction direction = Direction.fromDelta(side.getX(), side.getY(), side.getZ());
+        return direction == null ? Direction.UP : direction;
     }
 
     @Override
