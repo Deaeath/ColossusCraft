@@ -129,13 +129,12 @@ public final class AncientCityHelper {
     /** Force sneak at both the MC key-binding level and Baritone's input override. */
     private static void applySneak(boolean on) {
         Minecraft mc = Minecraft.getInstance();
-        // Drive the actual key binding so manual movement also sneaks/un-sneaks.
         mc.options.keyShift.setDown(on);
         try {
-            var ovr = BaritoneAPI.getProvider().getPrimaryBaritone().getInputOverrideHandler();
-            ovr.setInputForceState(Input.SNEAK, on);
-            // Suppress sprint when sneaking — Baritone mines with sprint by default.
-            if (on) ovr.setInputForceState(Input.SPRINT, false);
+            var bar = BaritoneAPI.getProvider().getPrimaryBaritone();
+            bar.getInputOverrideHandler().setInputForceState(Input.SNEAK, on);
+            // Tell Baritone's pathfinder not to sprint — setInputForceState is re-overridden every tick.
+            BaritoneAPI.getSettings().allowSprint.value = !on;
         } catch (Throwable ignored) {}
     }
 
