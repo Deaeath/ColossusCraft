@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -55,23 +56,41 @@ public final class AncientCityHelper {
 
     public static LiteralArgumentBuilder<CommandSourceStack> mineCommand() {
         return Commands.literal("mine")
-                .then(Commands.argument("block", net.minecraft.commands.arguments.ResourceLocationArgument.id())
+                .then(Commands.argument("count", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+                        .then(Commands.argument("blocks", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                                .suggests((ctx, builder) -> {
+                                    String rem = builder.getRemaining().toLowerCase();
+                                    // Suggest based on the last space-separated token
+                                    int lastSpace = rem.lastIndexOf(' ');
+                                    String prefix = lastSpace >= 0 ? rem.substring(0, lastSpace + 1) : "";
+                                    String token = lastSpace >= 0 ? rem.substring(lastSpace + 1) : rem;
+                                    BuiltInRegistries.BLOCK.keySet().stream()
+                                            .map(ResourceLocation::toString)
+                                            .filter(s -> s.contains(token))
+                                            .sorted()
+                                            .limit(200)
+                                            .forEach(s -> builder.suggest(prefix + s));
+                                    return builder.buildFuture();
+                                })
+                                .executes(ctx -> startMine(
+                                        com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "blocks"),
+                                        com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "count")))))
+                .then(Commands.argument("blocks", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
                         .suggests((ctx, builder) -> {
                             String rem = builder.getRemaining().toLowerCase();
+                            int lastSpace = rem.lastIndexOf(' ');
+                            String prefix = lastSpace >= 0 ? rem.substring(0, lastSpace + 1) : "";
+                            String token = lastSpace >= 0 ? rem.substring(lastSpace + 1) : rem;
                             BuiltInRegistries.BLOCK.keySet().stream()
                                     .map(ResourceLocation::toString)
-                                    .filter(s -> s.contains(rem))
+                                    .filter(s -> s.contains(token))
                                     .sorted()
                                     .limit(200)
-                                    .forEach(builder::suggest);
+                                    .forEach(s -> builder.suggest(prefix + s));
                             return builder.buildFuture();
                         })
                         .executes(ctx -> startMine(
-                                net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "block").toString(), 1))
-                        .then(Commands.argument("count", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
-                                .executes(ctx -> startMine(
-                                        net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "block").toString(),
-                                        com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "count")))));
+                                com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "blocks"), 1)));
     }
 
     private static void clientTick(ClientTickEvent.Post event) {
@@ -112,11 +131,11 @@ public final class AncientCityHelper {
         Minecraft mc = Minecraft.getInstance();
         // Drive the actual key binding so manual movement also sneaks/un-sneaks.
         mc.options.keyShift.setDown(on);
-        // Also tell Baritone so it paths with sneak when active.
         try {
-            BaritoneAPI.getProvider().getPrimaryBaritone()
-                    .getInputOverrideHandler()
-                    .setInputForceState(Input.SNEAK, on);
+            var ovr = BaritoneAPI.getProvider().getPrimaryBaritone().getInputOverrideHandler();
+            ovr.setInputForceState(Input.SNEAK, on);
+            // Suppress sprint when sneaking — Baritone mines with sprint by default.
+            if (on) ovr.setInputForceState(Input.SPRINT, false);
         } catch (Throwable ignored) {}
     }
 
@@ -136,30 +155,41 @@ public final class AncientCityHelper {
         return worst;
     }
 
-    private static int startMine(String blockName, int count) {
-        // Accept bare name ("allthemodium_ore") or namespaced ("allthemodium:allthemodium_ore")
-        String full = blockName.contains(":") ? blockName : "minecraft:" + blockName;
+    private static int startMine(String input, int count) {
+        // Accept space or comma separated list: "allthemodium:allthemodium_ore minecraft:diamond_ore"
+        String[] tokens = input.trim().split("[\\s,]+");
+        List<Block> blocks = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        List<String> unknown = new ArrayList<>();
 
-        // Try registry lookup first
-        Block block = BuiltInRegistries.BLOCK.getOptional(ResourceLocation.parse(full)).orElse(null);
-        if (block == null && !blockName.contains(":")) {
-            // Caller probably meant a mod block — try without minecraft: prefix via mineByName
-            try {
-                BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mineByName(count, blockName);
-                say("Mining: " + blockName + (count > 1 ? " x" + count : ""));
-                return 1;
-            } catch (Throwable e) {
-                say("Unknown block: " + blockName);
-                return 0;
+        for (String token : tokens) {
+            if (token.isBlank()) continue;
+            String full = token.contains(":") ? token : "minecraft:" + token;
+            Block block = BuiltInRegistries.BLOCK.getOptional(ResourceLocation.parse(full)).orElse(null);
+            if (block != null) {
+                blocks.add(block);
+                names.add(token);
+            } else {
+                // Mod block not in registry by that key — fall back to mineByName for this one
+                names.add(token);
+                unknown.add(token);
             }
         }
-        if (block == null) {
-            say("Unknown block: " + blockName);
+
+        if (blocks.isEmpty() && unknown.isEmpty()) {
+            say("No valid blocks specified.");
             return 0;
         }
+
         try {
-            BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess().mine(count, block);
-            say("Mining: " + blockName + (count > 1 ? " x" + count : ""));
+            var mine = BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess();
+            if (!unknown.isEmpty()) {
+                // Use mineByName for the whole list (handles mod blocks by path)
+                mine.mineByName(count, names.toArray(new String[0]));
+            } else {
+                mine.mine(count, blocks.toArray(new Block[0]));
+            }
+            say("Mining: " + String.join(", ", names) + (count > 1 ? " x" + count : ""));
         } catch (Throwable e) {
             say("Mine failed: " + e.getMessage());
             return 0;
