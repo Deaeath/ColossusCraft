@@ -32,13 +32,13 @@ public final class AiChat {
         "Commands use /cc (short) or /colossuscraft (full). Both work identically. There is also a /goto shortcut." +
         "\n" +
         "\n=== BOT CORE CONTROLS ===" +
-        "\n/cc on — start the automation engine (required before tasks run)" +
+        "\n/cc on — start the AltoClef automation engine (required before tasks run)" +
         "\n/cc off — pause the engine without clearing the current task" +
         "\n/cc stop — stop the bot and cancel all tasks and pathfinding" +
         "\n/cc status — show whether the bot is on/off, what task it is running" +
-        "\n/cc help — list all bot commands" +
-        "\n/cc exec <command> — run a raw bot command directly" +
-        "\n/cc nav <command> — run a raw pathfinder command (e.g. 'nav mine diamond_ore')" +
+        "\n/cc help — list internal AltoClef commands" +
+        "\n/cc exec <command> — run a raw internal AltoClef command directly" +
+        "\n/cc nav <command> — run a raw Baritone pathfinder command (e.g. 'nav mine diamond_ore')" +
         "\n" +
         "\n=== MOVEMENT AND NAVIGATION ===" +
         "\n/cc goto <x> <y> <z> — pathfind to coordinates" +
