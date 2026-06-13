@@ -11,7 +11,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.monster.warden.Warden;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -228,24 +227,7 @@ public class WardenTrapTask extends Task {
                         return null;
                     }
                     setDebugState("Digging trap block " + (digIndex + 1) + "/" + digTargets.size());
-                    // Equip appropriate tool: hoe for soft surface blocks, pickaxe for rock
-                    boolean isTopLayer = (target.getY() == wardenSpawn.getY());
-                    if (isTopLayer) {
-                        // Hoe shreds dirt/grass/soul soil fastest
-                        mod.getSlotHandler().forceEquipItem(
-                            new net.minecraft.world.item.Item[]{
-                                Items.NETHERITE_HOE, Items.DIAMOND_HOE, Items.IRON_HOE,
-                                Items.STONE_HOE, Items.WOODEN_HOE,
-                                Items.NETHERITE_SHOVEL, Items.DIAMOND_SHOVEL, Items.IRON_SHOVEL
-                            });
-                    } else {
-                        mod.getSlotHandler().forceEquipItem(
-                            new net.minecraft.world.item.Item[]{
-                                Items.NETHERITE_PICKAXE, Items.DIAMOND_PICKAXE,
-                                Items.IRON_PICKAXE, Items.STONE_PICKAXE, Items.WOODEN_PICKAXE
-                            });
-                    }
-                    // Mine this specific block by navigating adjacent and breaking it
+                    // AltoClef auto-selects best tool for the block type — no manual equip needed
                     Block blockToMine = mod.getWorld().getBlockState(target).getBlock();
                     try {
                         BaritoneAPI.getProvider().getPrimaryBaritone()
