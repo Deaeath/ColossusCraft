@@ -32,7 +32,7 @@ public final class AiChat {
             // Look for key file next to the game dir: .minecraft/colossuscraft-ai.key
             java.nio.file.Path keyFile = Minecraft.getInstance().gameDirectory.toPath().resolve("colossuscraft-ai.key");
             if (java.nio.file.Files.exists(keyFile)) {
-                API_KEY = java.nio.file.Files.readString(keyFile).trim();
+                API_KEY = java.nio.file.Files.readString(keyFile).trim().replace("﻿", "");
             }
         } catch (Exception ignored) {}
         return API_KEY;
