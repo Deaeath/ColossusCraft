@@ -432,6 +432,15 @@ public class MobDefenseChain extends SingleTaskChain {
             for (Entity entity : entities) {
                 if (KillAura.isDeflectableProjectile(entity)) {
                     mod.getControllerExtras().attack(entity);
+                } else if (entity instanceof Shulker && entity.isAlive()
+                        && !mod.getBehaviour().shouldExcludeFromForcefield(entity)
+                        && mod.getControllerExtras().inRange(entity)) {
+                    // Kill shulkers on sight during user tasks — no shielding, no pathing interrupt
+                    KillAura.equipWeapon(mod);
+                    LookHelper.lookAt(mod, entity.getEyePosition());
+                    if (mod.getPlayer().getAttackStrengthScale(0) >= 1) {
+                        mod.getControllerExtras().attack(entity);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -446,7 +455,7 @@ public class MobDefenseChain extends SingleTaskChain {
                 entity -> mod.getControllerExtras().inRange(entity),
                 ShulkerBullet.class);
         if (bullet.isEmpty()) return false;
-        mod.getClientBaritone().getPathingBehavior().cancelEverything();
+        // No cancelEverything() — deflect the bullet without freezing movement
         _killAura.stopShielding(mod);
         stopShielding(mod);
         LookHelper.lookAt(mod, bullet.get().position());
@@ -567,6 +576,10 @@ public class MobDefenseChain extends SingleTaskChain {
                         }
                         if (projectile.projectileType == DragonFireball.class) {
                             // Ignore dragon fireballs
+                            return false;
+                        }
+                        if (projectile.projectileType == ShulkerBullet.class) {
+                            // Ignore shulker bullets — bot has high armor, dodging them causes analysis paralysis
                             return false;
                         }
 
