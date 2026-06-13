@@ -22,8 +22,8 @@ Drop `colossuscraft-neoforge-1.21.1-1.0.1.jar` into your mods folder. That's it.
 /cc come
 /cc escape
 /cc findchest <item> [goto]
-/cc exec <altoclef-command>
-/cc baritone <baritone-command>
+/cc exec <internal-command>
+/cc nav <pathfinder-command>
 /cc help
 ```
 

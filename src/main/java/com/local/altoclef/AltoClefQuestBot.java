@@ -1,6 +1,7 @@
 package com.local.altoclef;
 
 import adris.altoclef.AltoClefPort;
+import com.local.baritoneautoeat.BaritoneAutoEat;
 import adris.altoclef.platform.NeoForgeAltoClefMod;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -92,7 +93,7 @@ public final class AltoClefQuestBot {
                 .then(Commands.literal("stop").executes(ctx -> stop()))
                 .then(Commands.literal("help").executes(ctx -> coreExec("help")))
                 .then(Commands.literal("exec").then(Commands.argument("command", StringArgumentType.greedyString()).executes(ctx -> coreExec(StringArgumentType.getString(ctx, "command")))))
-                .then(Commands.literal("baritone").then(Commands.argument("command", StringArgumentType.greedyString()).executes(ctx -> baritone(StringArgumentType.getString(ctx, "command")))))
+                .then(Commands.literal("nav").then(Commands.argument("command", StringArgumentType.greedyString()).executes(ctx -> baritone(StringArgumentType.getString(ctx, "command")))))
 
                 // ATM10 Sub-module
                 .then(Commands.literal("atm")
@@ -112,7 +113,7 @@ public final class AltoClefQuestBot {
                                 .then(Commands.literal("star").executes(ctx -> setGoal(GoalMode.ATM_STAR)))
                                 .then(Commands.literal("all").executes(ctx -> setGoal(GoalMode.ALL_QUESTS))))
                         .then(Commands.literal("altar").executes(ctx -> altar()))
-                .then(Commands.literal("machines").executes(ctx -> machines())))
+                .then(Commands.literal("machines").executes(ctx -> machines()))) // Closes the "atm" literal
 
                 // Bot functionality
                 .then(Commands.literal("follow").then(Commands.argument("player", StringArgumentType.word())
@@ -139,16 +140,15 @@ public final class AltoClefQuestBot {
                         .suggests(AltoClefCompletions::suggestItems)
                         .executes(ctx -> get(StringArgumentType.getString(ctx, "item"), 1))
                         .then(Commands.argument("count", IntegerArgumentType.integer(1))
-                                .executes(ctx -> get(StringArgumentType.getString(ctx, "item"), IntegerArgumentType.getInteger(ctx, "count")))))
+                                .executes(ctx -> get(StringArgumentType.getString(ctx, "item"), IntegerArgumentType.getInteger(ctx, "count"))))))
                 .then(Commands.literal("goto").then(Commands.argument("x", IntegerArgumentType.integer())
                         .then(Commands.argument("y", IntegerArgumentType.integer())
                                 .then(Commands.argument("z", IntegerArgumentType.integer())
-                                        .executes(ctx -> gotoPos(IntegerArgumentType.getInteger(ctx, "x"), IntegerArgumentType.getInteger(ctx, "y"), IntegerArgumentType.getInteger(ctx, "z"))))));
-
+                                        .executes(ctx -> gotoPos(IntegerArgumentType.getInteger(ctx, "x"), IntegerArgumentType.getInteger(ctx, "y"), IntegerArgumentType.getInteger(ctx, "z")))))));
         // Sub-modules
         root.then(EmergencyHome.command());
         root.then(InventoryView.command());
-        root.then(AltoClefUtilityCommands.command());
+        AltoClefUtilityCommands.addCommands(root);
         root.then(BaritoneAutoEat.command());
 
         event.getDispatcher().register(root);
@@ -355,10 +355,10 @@ public final class AltoClefQuestBot {
 
     private static int baritone(String command) {
         if (runBaritone(command)) {
-            say("Baritone: " + command);
+            say("Nav: " + command);
             return 1;
         }
-        say("Baritone command failed");
+        say("Nav command failed");
         return 0;
     }
 
@@ -393,7 +393,7 @@ public final class AltoClefQuestBot {
             say("ColossusCraft mining: " + String.join(", ", targets));
             return 1;
         }
-        say("ColossusCraft: Baritone command failed");
+        say("ColossusCraft: nav command failed");
         return 0;
     }
 
@@ -501,7 +501,7 @@ public final class AltoClefQuestBot {
             say("ColossusCraft goto: " + x + " " + y + " " + z);
             return 1;
         }
-        say("ColossusCraft goto: Baritone command failed");
+        say("ColossusCraft goto: nav command failed");
         return 0;
     }
 

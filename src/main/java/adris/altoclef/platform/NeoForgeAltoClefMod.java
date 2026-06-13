@@ -47,7 +47,6 @@ public final class NeoForgeAltoClefMod {
     }
 
     private static void registerCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(coreCommand("altoclef"));
         event.getDispatcher().register(coreCommand("colossuscraft"));
         event.getDispatcher().register(coreCommand("cc"));
     }
@@ -70,7 +69,7 @@ public final class NeoForgeAltoClefMod {
                 .then(Commands.literal("exec")
                         .then(Commands.argument("command", StringArgumentType.greedyString())
                                 .executes(ctx -> coreExec(StringArgumentType.getString(ctx, "command")))))
-                .then(Commands.literal("baritone")
+                .then(Commands.literal("nav")
                         .then(Commands.argument("command", StringArgumentType.greedyString())
                                 .executes(ctx -> baritone(StringArgumentType.getString(ctx, "command")))));
     }
@@ -151,10 +150,10 @@ public final class NeoForgeAltoClefMod {
 
     private static int baritone(String command) {
         if (PORT.core().runBaritone(command)) {
-            PORT.core().log("Baritone: " + command);
+            PORT.core().log("Nav: " + command);
             return 1;
         }
-        PORT.core().log("Baritone command failed");
+        PORT.core().log("Nav command failed");
         return 0;
     }
 }
