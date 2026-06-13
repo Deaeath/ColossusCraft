@@ -21,7 +21,7 @@ import net.neoforged.neoforge.common.NeoForge;
 public final class EmergencyHome {
     private static boolean initialized;
     private static boolean enabled = true;
-    private static float thresholdHealth = 8.0F;
+    private static float thresholdHealth = 6.0F;
     private static int cooldownTicks;
 
     private EmergencyHome() {
@@ -121,9 +121,9 @@ public final class EmergencyHome {
         if (effectiveHealth <= thresholdHealth) {
             return "low effective health " + format(effectiveHealth / 2.0F) + " hearts";
         }
-        if (rawHealth <= 10.0F && hostileNear(mc, player, 8.0D)) {
-            return "hostile near at " + format(rawHealth / 2.0F) + " hearts";
-        }
+        // Intentionally omitted: "hostile near" check. Triggering /home whenever a mob
+        // is within range during active combat (e.g. shulkers with @hero) causes an
+        // endless cancel-and-return loop. The health threshold above is sufficient.
         if (player.isInLava() && !player.hasEffect(MobEffects.FIRE_RESISTANCE)) {
             return "lava";
         }

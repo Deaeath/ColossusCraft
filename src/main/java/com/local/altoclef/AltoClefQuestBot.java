@@ -141,10 +141,22 @@ public final class AltoClefQuestBot {
                         .executes(ctx -> get(StringArgumentType.getString(ctx, "item"), 1))
                         .then(Commands.argument("count", IntegerArgumentType.integer(1))
                                 .executes(ctx -> get(StringArgumentType.getString(ctx, "item"), IntegerArgumentType.getInteger(ctx, "count"))))))
-                .then(Commands.literal("goto").then(Commands.argument("x", IntegerArgumentType.integer())
-                        .then(Commands.argument("y", IntegerArgumentType.integer())
-                                .then(Commands.argument("z", IntegerArgumentType.integer())
-                                        .executes(ctx -> gotoPos(IntegerArgumentType.getInteger(ctx, "x"), IntegerArgumentType.getInteger(ctx, "y"), IntegerArgumentType.getInteger(ctx, "z")))))));
+                .then(Commands.literal("goto")
+                        .then(Commands.argument("x", IntegerArgumentType.integer())
+                                .then(Commands.argument("y", IntegerArgumentType.integer())
+                                        .then(Commands.argument("z", IntegerArgumentType.integer())
+                                                .executes(ctx -> gotoPos(IntegerArgumentType.getInteger(ctx, "x"), IntegerArgumentType.getInteger(ctx, "y"), IntegerArgumentType.getInteger(ctx, "z"))))))
+                        .then(Commands.literal("entity")
+                                .then(Commands.argument("type", StringArgumentType.word())
+                                        .suggests(AltoClefCompletions::suggestEntities)
+                                        .executes(ctx -> gotoEntity(StringArgumentType.getString(ctx, "type")))))
+                        .then(Commands.literal("item")
+                                .then(Commands.argument("item", StringArgumentType.word())
+                                        .suggests(AltoClefCompletions::suggestItems)
+                                        .executes(ctx -> gotoItem(StringArgumentType.getString(ctx, "item")))))
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .suggests(AltoClefCompletions::suggestPlayers)
+                                .executes(ctx -> gotoPlayer(StringArgumentType.getString(ctx, "player")))));
         // Sub-modules
         root.then(EmergencyHome.command());
         root.then(InventoryView.command());
@@ -153,6 +165,7 @@ public final class AltoClefQuestBot {
 
         event.getDispatcher().register(root);
         event.getDispatcher().register(Commands.literal("cc").redirect(event.getDispatcher().getRoot().getChild("colossuscraft")));
+        event.getDispatcher().register(Commands.literal("goto").redirect(event.getDispatcher().getRoot().getChild("colossuscraft").getChild("goto")));
     }
 
     private static int setEnabled(boolean value) {
@@ -503,6 +516,59 @@ public final class AltoClefQuestBot {
         }
         say("ColossusCraft goto: nav command failed");
         return 0;
+    }
+
+    private static int gotoPlayer(String name) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null) {
+            say("ColossusCraft goto: no world");
+            return 0;
+        }
+        for (net.minecraft.world.entity.player.Player p : mc.level.players()) {
+            if (p == mc.player) continue;
+            if (p.getName().getString().equalsIgnoreCase(name) || p.getGameProfile().getName().equalsIgnoreCase(name)) {
+                BlockPos pos = p.blockPosition();
+                return gotoPos(pos.getX(), pos.getY(), pos.getZ());
+            }
+        }
+        say("ColossusCraft goto: player not found: " + name);
+        return 0;
+    }
+
+    private static int gotoEntity(String typeId) {
+        String id = AltoClefCompletions.resolveEntityId(typeId);
+        if (id == null) id = typeId;
+        Entity target = nearestEntity(id, 256.0d);
+        if (target == null) {
+            say("ColossusCraft goto entity: none visible: " + id);
+            return 0;
+        }
+        BlockPos pos = target.blockPosition();
+        return gotoPos(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    private static int gotoItem(String itemId) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null || mc.player == null) {
+            say("ColossusCraft goto item: no world");
+            return 0;
+        }
+        AltoClefCompletions.ItemMatch match = AltoClefCompletions.resolveItem(itemId);
+        net.minecraft.world.item.Item item = match != null ? match.item() : null;
+        net.minecraft.world.entity.item.ItemEntity nearest = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (!(e instanceof net.minecraft.world.entity.item.ItemEntity ie)) continue;
+            if (item != null && ie.getItem().getItem() != item) continue;
+            double d = e.distanceToSqr(mc.player);
+            if (d < bestDist) { bestDist = d; nearest = ie; }
+        }
+        if (nearest == null) {
+            say("ColossusCraft goto item: none visible: " + itemId);
+            return 0;
+        }
+        BlockPos pos = nearest.blockPosition();
+        return gotoPos(pos.getX(), pos.getY(), pos.getZ());
     }
 
     private static int follow(String player) {
