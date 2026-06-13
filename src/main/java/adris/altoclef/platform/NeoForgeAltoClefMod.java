@@ -2,6 +2,7 @@ package adris.altoclef.platform;
 
 import adris.altoclef.AltoClefPort;
 import com.local.altoclef.AiChat;
+import com.local.altoclef.AncientCityHelper;
 import adris.altoclef.commandsystem.Command;
 import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.BlockBreakingCancelEvent;
@@ -34,6 +35,7 @@ public final class NeoForgeAltoClefMod {
     private static final AltoClefPort PORT = new AltoClefPort(new NeoForgeAltoClefPlatform());
 
     public NeoForgeAltoClefMod(IEventBus modBus) {
+        AncientCityHelper.init();
         NeoForge.EVENT_BUS.addListener(NeoForgeAltoClefMod::registerCommands);
         NeoForge.EVENT_BUS.addListener(NeoForgeAltoClefMod::clientTick);
         NeoForge.EVENT_BUS.addListener(NeoForgeAltoClefMod::clientChat);
@@ -123,7 +125,9 @@ public final class NeoForgeAltoClefMod {
                                 .executes(ctx -> coreExec("deposit " + StringArgumentType.getString(ctx, "items")))))
                 .then(Commands.literal("ai")
                         .then(Commands.argument("message", StringArgumentType.greedyString())
-                                .executes(ctx -> AiChat.query(StringArgumentType.getString(ctx, "message")))));
+                                .executes(ctx -> AiChat.query(StringArgumentType.getString(ctx, "message")))))
+                .then(AncientCityHelper.sneakCommand())
+                .then(AncientCityHelper.mineCommand());
     }
 
     private static void clientTick(ClientTickEvent.Post event) {
