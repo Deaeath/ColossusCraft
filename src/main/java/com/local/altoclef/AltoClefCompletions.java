@@ -61,7 +61,7 @@ public final class AltoClefCompletions {
         return suggest(builder, names);
     }
 
-    static CompletableFuture<Suggestions> suggestArmor(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+    public static CompletableFuture<Suggestions> suggestArmor(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         LinkedHashSet<String> names = new LinkedHashSet<>();
         names.add("netherite");
         names.add("diamond");
@@ -76,7 +76,7 @@ public final class AltoClefCompletions {
         return suggest(builder, names);
     }
 
-    static CompletableFuture<Suggestions> suggestLocations(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+    public static CompletableFuture<Suggestions> suggestLocations(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         return suggest(builder, LOCATIONS);
     }
 
