@@ -20,9 +20,7 @@ public final class EntityHelper {
 
     public static boolean isAngryAtPlayer(AltoClef mod, Entity entity) {
         if (mod.getPlayer() == null) return false;
-        if (isActivelyTargetingPlayer(mod, entity)) return true;
-        if (entity instanceof Enemy) return entity.distanceTo(mod.getPlayer()) < 26;
-        return false;
+        return isActivelyTargetingPlayer(mod, entity);
     }
 
     public static boolean isActivelyTargetingPlayer(AltoClef mod, Entity entity) {
