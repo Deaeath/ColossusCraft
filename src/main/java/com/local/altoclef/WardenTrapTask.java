@@ -11,6 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.monster.warden.Warden;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -219,18 +220,36 @@ public class WardenTrapTask extends Task {
                     return null;
                 }
 
-                // Mine next block in the pit
+                // Mine next block in the pit: top layer with hoe, bottom with pickaxe
                 if (digIndex < digTargets.size()) {
                     BlockPos target = digTargets.get(digIndex);
                     if (mod.getWorld().getBlockState(target).isAir()) {
                         digIndex++;
                         return null;
                     }
-                    setDebugState("Digging trap block " + digIndex + "/" + digTargets.size());
-                    // Use Baritone mine directly for speed
+                    setDebugState("Digging trap block " + (digIndex + 1) + "/" + digTargets.size());
+                    // Equip appropriate tool: hoe for soft surface blocks, pickaxe for rock
+                    boolean isTopLayer = (target.getY() == wardenSpawn.getY());
+                    if (isTopLayer) {
+                        // Hoe shreds dirt/grass/soul soil fastest
+                        mod.getSlotHandler().forceEquipItem(
+                            new net.minecraft.world.item.Item[]{
+                                Items.NETHERITE_HOE, Items.DIAMOND_HOE, Items.IRON_HOE,
+                                Items.STONE_HOE, Items.WOODEN_HOE,
+                                Items.NETHERITE_SHOVEL, Items.DIAMOND_SHOVEL, Items.IRON_SHOVEL
+                            });
+                    } else {
+                        mod.getSlotHandler().forceEquipItem(
+                            new net.minecraft.world.item.Item[]{
+                                Items.NETHERITE_PICKAXE, Items.DIAMOND_PICKAXE,
+                                Items.IRON_PICKAXE, Items.STONE_PICKAXE, Items.WOODEN_PICKAXE
+                            });
+                    }
+                    // Mine this specific block by navigating adjacent and breaking it
+                    Block blockToMine = mod.getWorld().getBlockState(target).getBlock();
                     try {
-                        BaritoneAPI.getProvider().getPrimaryBaritone().getMineProcess()
-                            .mine(1, mod.getWorld().getBlockState(target).getBlock());
+                        BaritoneAPI.getProvider().getPrimaryBaritone()
+                            .getMineProcess().mine(1, blockToMine);
                     } catch (Throwable ignored) {}
                     return null;
                 }
