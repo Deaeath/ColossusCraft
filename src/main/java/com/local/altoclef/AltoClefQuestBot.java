@@ -164,6 +164,9 @@ public final class AltoClefQuestBot {
         AltoClefUtilityCommands.addCommands(root);
         root.then(BaritoneAutoEat.command());
         root.then(Commands.literal("warden")
+                .then(Commands.literal("fight")
+                        .executes(ctx -> wardenFight(false))
+                        .then(Commands.literal("gather").executes(ctx -> wardenFight(true))))
                 .then(Commands.literal("golems")
                         .executes(ctx -> wardenGolems(6))
                         .then(Commands.argument("count", IntegerArgumentType.integer(1, 12))
@@ -487,6 +490,14 @@ public final class AltoClefQuestBot {
 
     private static int setEmergencyHome(boolean on) {
         return EmergencyHome.setEnabled(on);
+    }
+
+    private static int wardenFight(boolean gather) {
+        upstreamPort.start();
+        upstreamPort.core().runUserTask(new WardenTrapTask(gather),
+                () -> say("Warden trap task finished"));
+        say("Warden: trap strategy started" + (gather ? " (gathering resources first)" : " (using what we have)"));
+        return 1;
     }
 
     private static int wardenGolems(int count) {

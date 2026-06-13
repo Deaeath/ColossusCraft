@@ -196,6 +196,12 @@ public final class AncientCityHelper {
         return 1;
     }
 
+    /** Programmatic sneak control for tasks (does not print a message). */
+    public static void setManualSneak(boolean on) {
+        manualSneak = on;
+        applySneak(on);
+    }
+
     private static int setSneak(boolean on) {
         manualSneak = on;
         applySneak(on);
