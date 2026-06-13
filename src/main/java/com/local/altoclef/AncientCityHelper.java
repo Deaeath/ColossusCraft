@@ -82,11 +82,13 @@ public final class AncientCityHelper {
         boolean inDeepDark = mc.level.getBiome(player.blockPosition()).is(Biomes.DEEP_DARK);
         boolean shouldSneak = manualSneak || inDeepDark;
 
-        // Warden awareness — check before applying sneak so we can freeze or release
+        // Warden awareness — freeze only while warden is building anger toward the player.
+        // Once it locks on (or we've teleported away), unfreeze immediately.
         Warden angryWarden = nearbyAngryWarden(mc, player);
-        if (angryWarden != null && angryWarden.getClientAngerLevel() >= FREEZE_ANGER
-                && (angryWarden.getTarget() == null || !angryWarden.getTarget().equals(player))) {
-            // Warden is building anger but hasn't locked on yet — freeze
+        boolean wardenBuilding = angryWarden != null
+                && angryWarden.getClientAngerLevel() >= FREEZE_ANGER
+                && (angryWarden.getTarget() == null || !angryWarden.getTarget().equals(player));
+        if (wardenBuilding) {
             if (!frozen) {
                 frozen = true;
                 try {
@@ -98,14 +100,19 @@ public final class AncientCityHelper {
             return;
         } else if (frozen) {
             frozen = false;
+            applySneak(false);  // explicit release — don't rely on fall-through
             say("Warden calmed — resuming");
         }
 
         applySneak(shouldSneak);
     }
 
-    /** Force Baritone's input override to hold or release sneak. */
+    /** Force sneak at both the MC key-binding level and Baritone's input override. */
     private static void applySneak(boolean on) {
+        Minecraft mc = Minecraft.getInstance();
+        // Drive the actual key binding so manual movement also sneaks/un-sneaks.
+        mc.options.keyShift.setDown(on);
+        // Also tell Baritone so it paths with sneak when active.
         try {
             BaritoneAPI.getProvider().getPrimaryBaritone()
                     .getInputOverrideHandler()
