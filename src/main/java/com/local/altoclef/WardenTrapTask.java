@@ -1,6 +1,7 @@
 package com.local.altoclef;
 
 import adris.altoclef.AltoClef;
+import adris.altoclef.TaskCatalogue;
 import adris.altoclef.tasks.CollectItemTask;
 import adris.altoclef.tasks.construction.PlaceBlockTask;
 import adris.altoclef.tasks.movement.GetToBlockTask;
@@ -121,20 +122,20 @@ public class WardenTrapTask extends Task {
                             Items.IRON_HOE, Items.STONE_HOE, Items.WOODEN_HOE,
                             Items.DIAMOND_HOE, Items.NETHERITE_HOE}, 1));
                 }
-                // Iron blocks for golems (craft from ingots if needed, best-effort)
+                // Iron blocks for golems — TaskCatalogue handles crafting from ingots via mass-craft
                 int ironBlocks = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_BLOCK);
                 int ironIngots = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_INGOT);
                 int wantBlocks = GOLEM_COUNT * 4;
                 if (ironBlocks < wantBlocks && (ironBlocks + ironIngots / 9) >= wantBlocks) {
-                    setDebugState("Crafting iron blocks");
-                    return new CollectItemTask(new ItemTarget(Items.IRON_BLOCK, wantBlocks));
+                    setDebugState("Crafting iron blocks " + ironBlocks + "/" + wantBlocks);
+                    return TaskCatalogue.getItemTask(Items.IRON_BLOCK, wantBlocks);
                 }
-                // Carved pumpkins for golems (best-effort — don't block if unavailable)
+                // Carved pumpkins — CarveThenCollectTask: get shears + raw pumpkins, carve in world
                 int pumpkins = mod.getItemStorage().getItemCountInventoryOnly(Items.CARVED_PUMPKIN)
                              + mod.getItemStorage().getItemCountInventoryOnly(Items.JACK_O_LANTERN);
                 if (pumpkins < GOLEM_COUNT && ironBlocks >= wantBlocks) {
-                    setDebugState("Collecting carved pumpkins");
-                    return new CollectItemTask(new ItemTarget(Items.CARVED_PUMPKIN, GOLEM_COUNT));
+                    setDebugState("Collecting carved pumpkins " + pumpkins + "/" + GOLEM_COUNT);
+                    return TaskCatalogue.getItemTask("carved_pumpkin", GOLEM_COUNT);
                 }
                 phase = Phase.FIND_SHRIEKER;
                 say("Gear ready. Heading to ancient city.");
@@ -169,9 +170,9 @@ public class WardenTrapTask extends Task {
                 int ironIngots  = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_INGOT);
                 int blocksNeeded = (golemsBuilt + 1) * 4;
                 if (ironBlocks < 4 && ironIngots >= 9) {
-                    setDebugState("Crafting iron blocks from ingots");
-                    return new CollectItemTask(new ItemTarget(Items.IRON_BLOCK,
-                            Math.min(blocksNeeded, ironBlocks + ironIngots / 9)));
+                    int target = Math.min(blocksNeeded, ironBlocks + ironIngots / 9);
+                    setDebugState("Crafting iron blocks from ingots " + ironBlocks + "/" + target);
+                    return TaskCatalogue.getItemTask(Items.IRON_BLOCK, target);
                 }
                 int maxGolems = availableGolems(mod);
 
