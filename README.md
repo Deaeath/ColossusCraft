@@ -13,18 +13,32 @@ Drop `colossuscraft-neoforge-1.21.1-1.0.1.jar` into your mods folder. That's it.
 ### Core bot
 
 ```
-/cc on|off|status|stop
+/cc on|off|status|stop|help|idle|coords|list|reload
 /cc get <item> [count]
 /cc goto <x> <y> <z>
 /cc follow <player>
 /cc kill <entity>
 /cc food <units>
+/cc meat <count>
 /cc come
 /cc escape
 /cc findchest <item> [goto]
+/cc give <player> <item> [count]
+/cc punk <player>
+/cc inventory [item]
+/cc locate <structure>
+/cc gamma [value]
+/cc equip [tier_or_item]
+/cc deposit [items]
+/cc custom <task>
+/cc test [name]
+/cc gamer
+/cc marvion
+/cc hero
+/cc coverwithblocks
+/cc coverwithsand
 /cc exec <internal-command>
 /cc nav <pathfinder-command>
-/cc help
 ```
 
 ### ATM10 quests (off by default)
