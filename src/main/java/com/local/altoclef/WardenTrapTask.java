@@ -120,14 +120,11 @@ public class WardenTrapTask extends Task {
                 BlockPos found = findShrieker(mod);
                 if (found != null) {
                     shriekerPos = found;
-                    int ironHave   = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_BLOCK);
-                    int pumpkinHave= mod.getItemStorage().getItemCountInventoryOnly(Items.CARVED_PUMPKIN)
-                                  + mod.getItemStorage().getItemCountInventoryOnly(Items.JACK_O_LANTERN);
-                    int possibleGolems = Math.min(ironHave / 4, pumpkinHave);
+                    int possibleGolems = availableGolems(mod);
                     if (possibleGolems > 0) {
                         phase = Phase.BUILD_GOLEMS;
-                        say("Shrieker at " + shriekerPos.toShortString() +
-                            " — building " + possibleGolems + " golem(s) first");
+                        say("Shrieker at " + shriekerPos.toShortString()
+                                + " — building " + possibleGolems + " golem(s) first");
                     } else {
                         phase = Phase.TRIGGER;
                         say("Shrieker at " + shriekerPos.toShortString() + " — triggering");
@@ -142,10 +139,16 @@ public class WardenTrapTask extends Task {
 
             // ── BUILD_GOLEMS ─────────────────────────────────────────────────
             case BUILD_GOLEMS -> {
-                int ironHave    = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_BLOCK);
-                int pumpkinHave = mod.getItemStorage().getItemCountInventoryOnly(Items.CARVED_PUMPKIN)
-                                + mod.getItemStorage().getItemCountInventoryOnly(Items.JACK_O_LANTERN);
-                int maxGolems   = Math.min(ironHave / 4, pumpkinHave);
+                // Craft iron blocks from ingots if needed
+                int ironBlocks  = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_BLOCK);
+                int ironIngots  = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_INGOT);
+                int blocksNeeded = (golemsBuilt + 1) * 4;
+                if (ironBlocks < 4 && ironIngots >= 9) {
+                    setDebugState("Crafting iron blocks from ingots");
+                    return new CollectItemTask(new ItemTarget(Items.IRON_BLOCK,
+                            Math.min(blocksNeeded, ironBlocks + ironIngots / 9)));
+                }
+                int maxGolems = availableGolems(mod);
 
                 if (golemsBuilt >= maxGolems || golemsBuilt >= GOLEM_COUNT) {
                     phase = Phase.TRIGGER;
@@ -306,6 +309,17 @@ public class WardenTrapTask extends Task {
     protected String toDebugString() { return "WardenTrap(" + phase + ")"; }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /** How many golems we can build right now (iron blocks + ingots/9, capped by pumpkins). */
+    private static int availableGolems(AltoClef mod) {
+        int ironBlocks  = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_BLOCK);
+        int ironIngots  = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_INGOT);
+        int totalBlocks = ironBlocks + ironIngots / 9;
+        int pumpkins    = mod.getItemStorage().getItemCountInventoryOnly(Items.CARVED_PUMPKIN)
+                        + mod.getItemStorage().getItemCountInventoryOnly(Items.JACK_O_LANTERN);
+        if (pumpkins == 0) return 0; // no pumpkins → skip golems entirely
+        return Math.min(totalBlocks / 4, pumpkins);
+    }
 
     /** 2×2 footprint, DIG_DEPTH deep, centred on the warden's block position. */
     private static List<BlockPos> buildDigTargets(BlockPos centre) {
