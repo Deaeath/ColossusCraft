@@ -108,7 +108,7 @@ foreach ($src in $Sources) {
 [System.IO.File]::WriteAllLines($ArgFile, $ArgFileContent)
 
 # Execute javac using the @argfile flag wrapped safely in quotes for PowerShell
-& (Join-Path $Java 'javac.exe') "@$ArgFile"
+& (Join-Path $Java 'javac.exe') '-J-Xmx512m' "@$ArgFile"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Copy-Item -Recurse -Force (Join-Path $ModClasses '*') $JarRoot

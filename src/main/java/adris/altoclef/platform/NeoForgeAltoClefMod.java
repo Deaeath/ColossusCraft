@@ -1,6 +1,7 @@
 package adris.altoclef.platform;
 
 import adris.altoclef.AltoClefPort;
+import com.local.altoclef.AiChat;
 import adris.altoclef.commandsystem.Command;
 import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.BlockBreakingCancelEvent;
@@ -119,7 +120,10 @@ public final class NeoForgeAltoClefMod {
                 .then(Commands.literal("deposit")
                         .executes(ctx -> coreExec("deposit"))
                         .then(Commands.argument("items", StringArgumentType.greedyString())
-                                .executes(ctx -> coreExec("deposit " + StringArgumentType.getString(ctx, "items")))));
+                                .executes(ctx -> coreExec("deposit " + StringArgumentType.getString(ctx, "items")))))
+                .then(Commands.literal("ai")
+                        .then(Commands.argument("message", StringArgumentType.greedyString())
+                                .executes(ctx -> AiChat.query(StringArgumentType.getString(ctx, "message")))));
     }
 
     private static void clientTick(ClientTickEvent.Post event) {

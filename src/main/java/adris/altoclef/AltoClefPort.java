@@ -5,8 +5,12 @@ import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.ClientTickEvent;
 import adris.altoclef.eventbus.events.PortTickEvent;
 import adris.altoclef.platform.AltoClefPlatform;
+import adris.altoclef.tasks.CollectItemTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 
 import java.util.List;
 
@@ -65,14 +69,26 @@ public final class AltoClefPort {
     }
 
     public boolean runItemTask(String itemName, int count) {
-        ItemTarget target = TaskCatalogue.getItemTarget(itemName, count);
-        if (target.isEmpty()) {
+        // Try the catalogue first (handles crafting, smelting, farming, etc.)
+        if (TaskCatalogue.taskExists(itemName)) {
+            Task task = TaskCatalogue.getItemTask(itemName, count);
+            start();
+            altoClef.getUserTaskChain().runTask(altoClef, task, () -> platform.log("Collected " + itemName));
+            return true;
+        }
+        // Fall back to registry lookup — handles any vanilla item by its registry name
+        // e.g. "elytra", "totem_of_undying", "nether_star"
+        String registryName = itemName.contains(":") ? itemName : "minecraft:" + itemName;
+        Item registryItem = BuiltInRegistries.ITEM
+                .getOptional(ResourceLocation.parse(registryName))
+                .orElse(null);
+        if (registryItem == null || registryItem == net.minecraft.world.item.Items.AIR) {
             platform.log("Unknown item: " + itemName);
             return false;
         }
-        Task task = TaskCatalogue.getItemTask(target);
+        ItemTarget target = new ItemTarget(registryItem, count);
         start();
-        altoClef.getUserTaskChain().runTask(altoClef, task, () -> platform.log("Collected " + target));
+        altoClef.getUserTaskChain().runTask(altoClef, new CollectItemTask(target), () -> platform.log("Collected " + itemName));
         return true;
     }
 
