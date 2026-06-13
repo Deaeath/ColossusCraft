@@ -98,21 +98,46 @@ public class WardenTrapTask extends Task {
 
             // ── GATHER ───────────────────────────────────────────────────────
             case GATHER -> {
-                // Bow
-                int arrows = mod.getItemStorage().getItemCountInventoryOnly(Items.ARROW);
+                // Bow or crossbow
                 if (!mod.getItemStorage().hasItemInventoryOnly(Items.BOW) &&
                     !mod.getItemStorage().hasItemInventoryOnly(Items.CROSSBOW)) {
                     setDebugState("Collecting bow");
                     return new CollectItemTask(new ItemTarget(Items.BOW, 1));
                 }
+                // Arrows
+                int arrows = mod.getItemStorage().getItemCountInventoryOnly(Items.ARROW);
                 if (arrows < BOW_ARROWS_NEEDED) {
                     setDebugState("Collecting arrows " + arrows + "/" + BOW_ARROWS_NEEDED);
                     return new CollectItemTask(new ItemTarget(Items.ARROW, BOW_ARROWS_NEEDED));
                 }
-                // Iron + pumpkins (best-effort — we won't block if can't get them)
-                // Just advance; golems phase will use whatever we have
+                // Hoe (for digging dirt/grass top layer)
+                boolean hasHoe = mod.getItemStorage().hasItemInventoryOnly(
+                    Items.NETHERITE_HOE, Items.DIAMOND_HOE, Items.IRON_HOE,
+                    Items.STONE_HOE, Items.WOODEN_HOE);
+                if (!hasHoe) {
+                    setDebugState("Collecting hoe");
+                    return new CollectItemTask(new ItemTarget(
+                        new net.minecraft.world.item.Item[]{
+                            Items.IRON_HOE, Items.STONE_HOE, Items.WOODEN_HOE,
+                            Items.DIAMOND_HOE, Items.NETHERITE_HOE}, 1));
+                }
+                // Iron blocks for golems (craft from ingots if needed, best-effort)
+                int ironBlocks = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_BLOCK);
+                int ironIngots = mod.getItemStorage().getItemCountInventoryOnly(Items.IRON_INGOT);
+                int wantBlocks = GOLEM_COUNT * 4;
+                if (ironBlocks < wantBlocks && (ironBlocks + ironIngots / 9) >= wantBlocks) {
+                    setDebugState("Crafting iron blocks");
+                    return new CollectItemTask(new ItemTarget(Items.IRON_BLOCK, wantBlocks));
+                }
+                // Carved pumpkins for golems (best-effort — don't block if unavailable)
+                int pumpkins = mod.getItemStorage().getItemCountInventoryOnly(Items.CARVED_PUMPKIN)
+                             + mod.getItemStorage().getItemCountInventoryOnly(Items.JACK_O_LANTERN);
+                if (pumpkins < GOLEM_COUNT && ironBlocks >= wantBlocks) {
+                    setDebugState("Collecting carved pumpkins");
+                    return new CollectItemTask(new ItemTarget(Items.CARVED_PUMPKIN, GOLEM_COUNT));
+                }
                 phase = Phase.FIND_SHRIEKER;
-                say("Resources ready. Finding shrieker.");
+                say("Gear ready. Heading to ancient city.");
             }
 
             // ── FIND_SHRIEKER ────────────────────────────────────────────────
