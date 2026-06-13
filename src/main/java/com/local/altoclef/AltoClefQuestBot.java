@@ -80,6 +80,7 @@ public final class AltoClefQuestBot {
         EmergencyHome.init();
         InventoryView.init(modBus);
         AltoClefUtilityCommands.init();
+        BowAimbot.init();
         NeoForge.EVENT_BUS.addListener(AltoClefQuestBot::registerCommands);
         NeoForge.EVENT_BUS.addListener(AltoClefQuestBot::clientTick);
     }
@@ -162,6 +163,20 @@ public final class AltoClefQuestBot {
         root.then(InventoryView.command());
         AltoClefUtilityCommands.addCommands(root);
         root.then(BaritoneAutoEat.command());
+        root.then(Commands.literal("warden")
+                .then(Commands.literal("golems")
+                        .executes(ctx -> wardenGolems(6))
+                        .then(Commands.argument("count", IntegerArgumentType.integer(1, 12))
+                                .executes(ctx -> wardenGolems(IntegerArgumentType.getInteger(ctx, "count")))))
+                .then(Commands.literal("stop").executes(ctx -> wardenStop())));
+        root.then(Commands.literal("bow")
+                .then(Commands.literal("on").executes(ctx -> { BowAimbot.setEnabled(true); return 1; }))
+                .then(Commands.literal("off").executes(ctx -> { BowAimbot.setEnabled(false); return 1; }))
+                .then(Commands.literal("status").executes(ctx -> {
+                    Minecraft.getInstance().player.displayClientMessage(
+                        net.minecraft.network.chat.Component.literal("Bow aimbot: " + (BowAimbot.isEnabled() ? "ON" : "OFF")), false);
+                    return 1;
+                })));
 
         event.getDispatcher().register(root);
         event.getDispatcher().register(Commands.literal("cc").redirect(event.getDispatcher().getRoot().getChild("colossuscraft")));
@@ -472,6 +487,21 @@ public final class AltoClefQuestBot {
 
     private static int setEmergencyHome(boolean on) {
         return EmergencyHome.setEnabled(on);
+    }
+
+    private static int wardenGolems(int count) {
+        upstreamPort.start();
+        upstreamPort.core().runUserTask(new WardenGolemTask(count),
+                () -> say("Warden golem task finished"));
+        say("Warden: spawning " + count + " iron golems");
+        return 1;
+    }
+
+    private static int wardenStop() {
+        upstreamPort.core().getUserTaskChain().cancel(upstreamPort.core());
+        upstreamPort.core().stopPathing();
+        say("Warden task stopped");
+        return 1;
     }
 
     private static int setAutoHunt(boolean on) {
