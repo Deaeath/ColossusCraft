@@ -3,7 +3,6 @@ package adris.altoclef.platform;
 import adris.altoclef.AltoClefPort;
 import com.local.altoclef.AiChat;
 import com.local.altoclef.AncientCityHelper;
-import adris.altoclef.commandsystem.Command;
 import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.BlockBreakingCancelEvent;
 import adris.altoclef.eventbus.events.BlockBreakingEvent;
@@ -26,8 +25,6 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.fml.common.Mod;
 
-import java.util.Comparator;
-import java.util.stream.Collectors;
 
 @Mod(value = NeoForgeAltoClefMod.MOD_ID, dist = Dist.CLIENT)
 public final class NeoForgeAltoClefMod {
@@ -50,32 +47,10 @@ public final class NeoForgeAltoClefMod {
     }
 
     private static void registerCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(coreCommand("colossuscraft"));
-        event.getDispatcher().register(coreCommand("cc"));
-    }
-
-    private static LiteralArgumentBuilder<CommandSourceStack> coreCommand(String name) {
-        return Commands.literal(name)
-                .then(Commands.literal("on").executes(ctx -> coreOn()))
-                .then(Commands.literal("off").executes(ctx -> coreOff()))
-                .then(Commands.literal("status").executes(ctx -> coreStatus()))
-                .then(Commands.literal("help").executes(ctx -> help()))
-                .then(Commands.literal("stop").executes(ctx -> coreExec("stop")))
-                .then(Commands.literal("get")
-                        .then(Commands.argument("item", StringArgumentType.word())
-                                .executes(ctx -> coreGet(StringArgumentType.getString(ctx, "item"), 1))
-                                .then(Commands.argument("count", IntegerArgumentType.integer(1))
-                                        .executes(ctx -> coreGet(StringArgumentType.getString(ctx, "item"), IntegerArgumentType.getInteger(ctx, "count"))))))
-                .then(Commands.literal("kill")
-                        .then(Commands.argument("entity", StringArgumentType.word())
-                                .executes(ctx -> coreExec("kill " + StringArgumentType.getString(ctx, "entity")))))
-                .then(Commands.literal("exec")
-                        .then(Commands.argument("command", StringArgumentType.greedyString())
-                                .executes(ctx -> coreExec(StringArgumentType.getString(ctx, "command")))))
-                .then(Commands.literal("nav")
-                        .then(Commands.argument("command", StringArgumentType.greedyString())
-                                .executes(ctx -> baritone(StringArgumentType.getString(ctx, "command")))))
-                // Upstream commands wired as first-class subcommands
+        // Only add commands that AltoClefQuestBot does NOT define.
+        // AltoClefQuestBot owns the colossuscraft root and the /cc redirect.
+        LiteralArgumentBuilder<CommandSourceStack> extra = Commands.literal("colossuscraft")
+                // Upstream @-command wrappers
                 .then(Commands.literal("gamer").executes(ctx -> coreExec("gamer")))
                 .then(Commands.literal("marvion").executes(ctx -> coreExec("marvion")))
                 .then(Commands.literal("hero").executes(ctx -> coreExec("hero")))
@@ -87,10 +62,13 @@ public final class NeoForgeAltoClefMod {
                 .then(Commands.literal("coverwithsand").executes(ctx -> coreExec("coverwithsand")))
                 .then(Commands.literal("punk")
                         .then(Commands.argument("player", StringArgumentType.word())
+                                .suggests(com.local.altoclef.AltoClefCompletions::suggestPlayers)
                                 .executes(ctx -> coreExec("punk " + StringArgumentType.getString(ctx, "player")))))
                 .then(Commands.literal("give")
                         .then(Commands.argument("player", StringArgumentType.word())
+                                .suggests(com.local.altoclef.AltoClefCompletions::suggestPlayers)
                                 .then(Commands.argument("item", StringArgumentType.word())
+                                        .suggests(com.local.altoclef.AltoClefCompletions::suggestItems)
                                         .executes(ctx -> coreExec("give " + StringArgumentType.getString(ctx, "player") + " " + StringArgumentType.getString(ctx, "item")))
                                         .then(Commands.argument("count", IntegerArgumentType.integer(1))
                                                 .executes(ctx -> coreExec("give " + StringArgumentType.getString(ctx, "player") + " " + StringArgumentType.getString(ctx, "item") + " " + IntegerArgumentType.getInteger(ctx, "count")))))))
@@ -104,6 +82,7 @@ public final class NeoForgeAltoClefMod {
                 .then(Commands.literal("inventory")
                         .executes(ctx -> coreExec("inventory"))
                         .then(Commands.argument("item", StringArgumentType.word())
+                                .suggests(com.local.altoclef.AltoClefCompletions::suggestItems)
                                 .executes(ctx -> coreExec("inventory " + StringArgumentType.getString(ctx, "item")))))
                 .then(Commands.literal("locate")
                         .then(Commands.argument("structure", StringArgumentType.word())
@@ -128,6 +107,7 @@ public final class NeoForgeAltoClefMod {
                                 .executes(ctx -> AiChat.query(StringArgumentType.getString(ctx, "message")))))
                 .then(AncientCityHelper.sneakCommand())
                 .then(AncientCityHelper.mineCommand());
+        event.getDispatcher().register(extra);
     }
 
     private static void clientTick(ClientTickEvent.Post event) {
@@ -168,35 +148,6 @@ public final class NeoForgeAltoClefMod {
         } else {
             EventBus.publish(new BlockBreakingEvent(event.getPos(), 0));
         }
-    }
-
-    private static int coreOn() {
-        PORT.start();
-        return 1;
-    }
-
-    private static int coreOff() {
-        PORT.stop();
-        return 1;
-    }
-
-    private static int coreStatus() {
-        adris.altoclef.tasksystem.Task task = PORT.core().getUserTaskChain().getCurrentTask();
-        PORT.core().log("ColossusCraft core: " + (PORT.running() ? "ON" : "OFF") + " task=" + (task == null ? "none" : task));
-        return 1;
-    }
-
-    private static int help() {
-        String commands = PORT.core().getCommandExecutor().allCommands().stream()
-                .sorted(Comparator.comparing(Command::getName))
-                .map(command -> "@" + command.getHelpRepresentation())
-                .collect(Collectors.joining(", "));
-        PORT.core().log("ColossusCraft commands: " + commands);
-        return 1;
-    }
-
-    private static int coreGet(String item, int count) {
-        return PORT.runItemTask(item, count) ? 1 : 0;
     }
 
     private static int coreExec(String command) {

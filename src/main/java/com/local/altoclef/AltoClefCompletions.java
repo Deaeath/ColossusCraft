@@ -24,7 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-final class AltoClefCompletions {
+public final class AltoClefCompletions {
     private static final int LIMIT = 80;
     private static List<ItemCandidate> itemCandidates;
     private static List<EntityCandidate> entityCandidates;
@@ -42,15 +42,15 @@ final class AltoClefCompletions {
     private AltoClefCompletions() {
     }
 
-    static CompletableFuture<Suggestions> suggestItems(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+    public static CompletableFuture<Suggestions> suggestItems(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         return suggest(builder, itemSuggestionNames());
     }
 
-    static CompletableFuture<Suggestions> suggestEntities(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+    public static CompletableFuture<Suggestions> suggestEntities(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         return suggest(builder, entitySuggestionNames());
     }
 
-    static CompletableFuture<Suggestions> suggestPlayers(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+    public static CompletableFuture<Suggestions> suggestPlayers(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         LinkedHashSet<String> names = new LinkedHashSet<>();
         Minecraft mc = Minecraft.getInstance();
         if (mc.getConnection() != null) {

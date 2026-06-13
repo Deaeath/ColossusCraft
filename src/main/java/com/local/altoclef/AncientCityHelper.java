@@ -55,11 +55,22 @@ public final class AncientCityHelper {
 
     public static LiteralArgumentBuilder<CommandSourceStack> mineCommand() {
         return Commands.literal("mine")
-                .then(Commands.argument("block", StringArgumentType.word())
-                        .executes(ctx -> startMine(StringArgumentType.getString(ctx, "block"), 1))
+                .then(Commands.argument("block", net.minecraft.commands.arguments.ResourceLocationArgument.id())
+                        .suggests((ctx, builder) -> {
+                            String rem = builder.getRemaining().toLowerCase();
+                            BuiltInRegistries.BLOCK.keySet().stream()
+                                    .map(ResourceLocation::toString)
+                                    .filter(s -> s.contains(rem))
+                                    .sorted()
+                                    .limit(200)
+                                    .forEach(builder::suggest);
+                            return builder.buildFuture();
+                        })
+                        .executes(ctx -> startMine(
+                                net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "block").toString(), 1))
                         .then(Commands.argument("count", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
                                 .executes(ctx -> startMine(
-                                        StringArgumentType.getString(ctx, "block"),
+                                        net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "block").toString(),
                                         com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "count")))));
     }
 
