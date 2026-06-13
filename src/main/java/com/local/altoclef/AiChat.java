@@ -77,7 +77,7 @@ public final class AiChat {
         "\nNote: findchest only knows about chests you (or the bot) have already opened; it cannot x-ray sealed chests." +
         "\n" +
         "\n=== COMBAT AND ENEMIES ===" +
-        "\n/cc kill <entity> — hunt and kill an entity type. Uses full AltoClef combat: auto-equips weapons, shields, force-field." +
+        "\n/cc kill <entity> — hunt and kill an entity type. Auto-equips weapons, shields, fights aggressively." +
         "\n    /cc kill zombie" +
         "\n    /cc kill minecraft:wither_skeleton" +
         "\n    /cc kill allthemodium:piglich — hunt a Piglich in The Other dimension for Piglich Hearts" +
@@ -140,10 +140,10 @@ public final class AiChat {
         "\n    /cc equip diamond" +
         "\n/cc gear armor <tier_or_item> — same as equip, alternative syntax" +
         "\n/cc elytra — go get an elytra from an End Ship (full End journey: find stronghold, defeat dragon, find ship)" +
-        "\n/cc gamer — run the GamerTask: the bot plays the game aggressively, hunting mobs and looting" +
-        "\n/cc marvion — run the MarvionTask: specialized ATM10 combat/progression task" +
-        "\n/cc hero — run the HeroTask: protect nearby players, fight threats" +
-        "\n/cc idle — stop all tasks and go into idle mode (bot does nothing but monitor)" +
+        "\n/cc gamer — full vanilla Minecraft speedrun: gathers gear, finds stronghold, defeats Ender Dragon" +
+        "\n/cc marvion — alternate speedrun strategy (Marvion route): different preparation and execution order" +
+        "\n/cc hero — hunt and kill ALL hostile mobs in the world continuously until stopped" +
+        "\n/cc idle — stand completely still and do nothing" +
         "\n" +
         "\n=== BARTERING (PIGLINS) ===" +
         "\n/cc barter <item> [count] [gold] — trade with Piglins to get an item. Throws gold ingots at Piglins, collects drops." +
@@ -176,13 +176,12 @@ public final class AiChat {
         "\n/cc sleep — sleep through the night using a bed if one is available or can be placed" +
         "\n/cc setspawn — place a bed and set spawn point" +
         "\n/cc gamma [value] — set fullbright / gamma. Without a value, toggles max gamma. With a value (e.g. 100), sets it." +
-        "\n/cc coords — print current XYZ coordinates" +
-        "\n/cc list — list all players currently on the server" +
-        "\n/cc reload — reload ColossusCraft settings from disk" +
-        "\n/cc coverwithblocks — cover the player in blocks to hide from mobs" +
-        "\n/cc coverwithsand — cover the player in sand (for creative pranks / grief)" +
-        "\n/cc punk <player> — grief a player (cover them in blocks)" +
-        "\n/cc give <player> <item> [count] — walk to a player and give them an item" +
+        "\n/cc coords — print current XYZ coordinates and current dimension" +
+        "\n/cc list — list all items the bot knows how to obtain" +
+        "\n/cc coverwithblocks — cover exposed nether lava with blocks (useful for safe pathing)" +
+        "\n/cc coverwithsand — cover exposed nether lava with sand" +
+        "\n/cc punk <player> — hunt and kill a specific player" +
+        "\n/cc give <player> <item> [count] — collect an item and deliver it to a player" +
         "\n/cc custom <task> — run a named custom task by task class name" +
         "\n/cc test [name] — run a test task or specific named test" +
         "\n/cc utility stop — stop all background utility daemons" +
