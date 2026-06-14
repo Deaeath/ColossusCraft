@@ -86,7 +86,9 @@ public abstract class AbstractDoToClosestObjectTask<T> extends Task {
                         _currentlyPursuing = newClosest;
                         maybeReAttempt.updateDistance(maybeClosestDistance);
                     }
-                } else {
+                } else if (currentHeuristic < Double.POSITIVE_INFINITY) {
+                    // Only switch to an untried target while Baritone is actively path-following.
+                    // When not pathing (e.g. close-range mining), stay on current target until done.
                     setDebugState("Trying new pursuit");
                     _currentlyPursuing = newClosest;
                 }

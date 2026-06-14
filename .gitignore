@@ -3,3 +3,5 @@ build/
 *.class
 *.hprof
 colossuscraft-ai.key
+.gradle/*
+.vscode/*
