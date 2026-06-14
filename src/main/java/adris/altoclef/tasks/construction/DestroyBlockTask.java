@@ -1,7 +1,6 @@
 package adris.altoclef.tasks.construction;
 
 import adris.altoclef.AltoClef;
-import adris.altoclef.tasks.movement.GetToBlockTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.helpers.LookHelper;
 import adris.altoclef.util.helpers.StorageHelper;
@@ -35,9 +34,6 @@ public class DestroyBlockTask extends Task {
     protected Task onTick(AltoClef mod) {
         BlockState state = mod.getWorld() == null ? null : mod.getWorld().getBlockState(pos);
         if (state != null && state.isAir()) return null;
-        if (mod.getPlayer() != null && mod.getPlayer().blockPosition().distSqr(pos) > 25) {
-            return new GetToBlockTask(pos);
-        }
         if (state != null) equipBestTool(mod, state);
         LookHelper.lookAt(mod, pos);
         Direction face = getHitFace(mod);
