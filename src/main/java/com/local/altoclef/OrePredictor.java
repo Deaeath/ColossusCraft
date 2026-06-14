@@ -37,12 +37,6 @@ public final class OrePredictor {
     // GenerationStep.Decoration.UNDERGROUND_ORES.ordinal() in MC 1.21.1
     public static final int UNDERGROUND_ORES_STEP = 6;
 
-    // Y where deepslate starts in the mining dim
-    private static final int DEEPSLATE_Y = 129;
-
-    // Blob size fuzz: ore blob can place blocks a few blocks above the center
-    private static final int BLOB_MARGIN = 3;
-
     // Default feature index for allthemodium:allthemodium_mining within the
     // underground_ores step of the allthemodium:mining biome.
     // Derived from alphabetical order of dim_ores biome modifiers:
@@ -88,15 +82,29 @@ public final class OrePredictor {
      * Returns the matching index, or -1 if none found.
      */
     public static int calibrate(long worldSeed, int knownOreX, int knownOreZ) {
+        return calibrate(worldSeed, knownOreX, Integer.MIN_VALUE, knownOreZ);
+    }
+
+    public static int calibrate(long worldSeed, int knownOreX, int knownOreY, int knownOreZ) {
         int targetCx = knownOreX >> 4;
         int targetCz = knownOreZ >> 4;
+        int best = -1;
+        double bestScore = Double.POSITIVE_INFINITY;
         for (int idx = 0; idx <= 256; idx++) {
             BlockPos pred = predictChunk(worldSeed, targetCx, targetCz, idx);
-            if (pred != null) {
-                return idx;
+            if (pred == null) continue;
+            int dx = pred.getX() - knownOreX;
+            int dz = pred.getZ() - knownOreZ;
+            double score = dx * dx + dz * dz;
+            if (knownOreY != Integer.MIN_VALUE) {
+                score += Math.min(Math.abs(pred.getY() - knownOreY), 32) * 0.25D;
+            }
+            if (score < bestScore) {
+                bestScore = score;
+                best = idx;
             }
         }
-        return -1;
+        return best;
     }
 
     /**
@@ -124,8 +132,6 @@ public final class OrePredictor {
 
         // Ore generates only if the blob can reach deepslate (Y ≥ DEEPSLATE_Y).
         // With blob margin, even y = DEEPSLATE_Y - BLOB_MARGIN can produce ore.
-        if (y < DEEPSLATE_Y - BLOB_MARGIN) return null;
-
         return new BlockPos(chunkX * 16 + xOff, y, chunkZ * 16 + zOff);
     }
 }

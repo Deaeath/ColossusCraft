@@ -196,10 +196,9 @@ final class AltoClefUtilityCommands {
             .max(java.util.Comparator.comparingInt(Enum::ordinal))
             .orElse(adris.altoclef.util.MiningRequirement.HAND);
 
-        // Build item targets — one per block, sharing the total count
-        adris.altoclef.util.ItemTarget[] targets = blocks.stream()
-            .map(b -> new adris.altoclef.util.ItemTarget(b.asItem(), count))
-            .toArray(adris.altoclef.util.ItemTarget[]::new);
+        // Build item targets from likely drops, not just the ore block item.
+        // Mod ores usually drop raw items, so targeting block.asItem() can make /cc mine stop early or ignore drops.
+        adris.altoclef.util.ItemTarget[] targets = mineOutputTargets(resolved, blocks, count);
 
         // --biome flag overrides; otherwise check if any block is a known deep-dark ore
         ResourceKey<Biome> biomePref = explicitBiome != null ? explicitBiome : inferBiome(resolved);
@@ -208,6 +207,74 @@ final class AltoClefUtilityCommands {
             new adris.altoclef.tasks.resources.MineAndCollectTask(targets, blocks.toArray(new Block[0]), req, biomePref),
             "Mining " + String.join(", ", resolved) + (count == Integer.MAX_VALUE ? "" : " x" + count)
                 + (biomePref != null ? " [prefers " + biomePref.location().getPath() + "]" : ""));
+    }
+
+    private static adris.altoclef.util.ItemTarget[] mineOutputTargets(java.util.List<String> ids, java.util.List<Block> blocks, int count) {
+        java.util.LinkedHashSet<Item> items = new java.util.LinkedHashSet<>();
+        for (Block block : blocks) {
+            Item item = block.asItem();
+            if (item != null && item != Items.AIR) items.add(item);
+        }
+        for (String id : ids) addLikelyMineDrops(id, items);
+        if (items.isEmpty()) {
+            for (Block block : blocks) {
+                Item item = block.asItem();
+                if (item != null) items.add(item);
+            }
+        }
+        return new adris.altoclef.util.ItemTarget[]{
+            new adris.altoclef.util.ItemTarget(items.toArray(Item[]::new), count)
+        };
+    }
+
+    private static void addLikelyMineDrops(String blockId, java.util.Set<Item> out) {
+        ResourceLocation loc = ResourceLocation.tryParse(blockId);
+        if (loc == null) return;
+        String ns = loc.getNamespace();
+        String path = loc.getPath();
+
+        if (ns.equals("allthemodium")) {
+            if (path.contains("allthemodium")) {
+                addItem(out, "allthemodium:raw_allthemodium");
+                addItem(out, "allthemodium:allthemodium_ingot");
+            } else if (path.contains("vibranium")) {
+                addItem(out, "allthemodium:raw_vibranium");
+                addItem(out, "allthemodium:vibranium_ingot");
+            } else if (path.contains("unobtainium")) {
+                addItem(out, "allthemodium:raw_unobtainium");
+                addItem(out, "allthemodium:unobtainium_ingot");
+            }
+            return;
+        }
+
+        switch (blockId) {
+            case "minecraft:coal_ore", "minecraft:deepslate_coal_ore" -> addItem(out, "minecraft:coal");
+            case "minecraft:diamond_ore", "minecraft:deepslate_diamond_ore" -> addItem(out, "minecraft:diamond");
+            case "minecraft:emerald_ore", "minecraft:deepslate_emerald_ore" -> addItem(out, "minecraft:emerald");
+            case "minecraft:lapis_ore", "minecraft:deepslate_lapis_ore" -> addItem(out, "minecraft:lapis_lazuli");
+            case "minecraft:redstone_ore", "minecraft:deepslate_redstone_ore" -> addItem(out, "minecraft:redstone");
+            case "minecraft:nether_gold_ore", "minecraft:gold_ore", "minecraft:deepslate_gold_ore" -> addItem(out, "minecraft:raw_gold");
+            case "minecraft:iron_ore", "minecraft:deepslate_iron_ore" -> addItem(out, "minecraft:raw_iron");
+            case "minecraft:copper_ore", "minecraft:deepslate_copper_ore" -> addItem(out, "minecraft:raw_copper");
+            case "minecraft:nether_quartz_ore" -> addItem(out, "minecraft:quartz");
+            default -> {
+                if (path.endsWith("_ore")) {
+                    String base = path.substring(0, path.length() - "_ore".length());
+                    if (base.startsWith("deepslate_")) base = base.substring("deepslate_".length());
+                    if (base.startsWith("other_")) base = base.substring("other_".length());
+                    addItem(out, ns + ":raw_" + base);
+                    addItem(out, ns + ":" + base + "_ingot");
+                    addItem(out, ns + ":" + base);
+                }
+            }
+        }
+    }
+
+    private static void addItem(java.util.Set<Item> out, String id) {
+        ResourceLocation loc = ResourceLocation.tryParse(id);
+        if (loc == null) return;
+        Item item = BuiltInRegistries.ITEM.get(loc);
+        if (item != null && item != Items.AIR) out.add(item);
     }
 
     private static Block resolveBlock(String blockId) {
@@ -657,6 +724,16 @@ final class AltoClefUtilityCommands {
                                 IntegerArgumentType.getInteger(ctx, "radiusChunks"),
                                 IntegerArgumentType.getInteger(ctx, "featureIdx")))))))
             .then(Commands.literal("calibrate")
+                .then(Commands.literal("exact")
+                    .then(Commands.argument("seed", com.mojang.brigadier.arguments.LongArgumentType.longArg())
+                        .then(Commands.argument("knownOreX", IntegerArgumentType.integer())
+                            .then(Commands.argument("knownOreY", IntegerArgumentType.integer())
+                                .then(Commands.argument("knownOreZ", IntegerArgumentType.integer())
+                                    .executes(ctx -> scanCalibrate(
+                                        com.mojang.brigadier.arguments.LongArgumentType.getLong(ctx, "seed"),
+                                        IntegerArgumentType.getInteger(ctx, "knownOreX"),
+                                        IntegerArgumentType.getInteger(ctx, "knownOreY"),
+                                        IntegerArgumentType.getInteger(ctx, "knownOreZ"))))))))
                 // /cc scan calibrate <x> <z>  → auto-detect seed
                 .then(Commands.argument("knownOreX", IntegerArgumentType.integer())
                     .then(Commands.argument("knownOreZ", IntegerArgumentType.integer())
@@ -669,7 +746,14 @@ final class AltoClefUtilityCommands {
                             .executes(ctx -> scanCalibrate(
                                 com.mojang.brigadier.arguments.LongArgumentType.getLong(ctx, "seed"),
                                 IntegerArgumentType.getInteger(ctx, "knownOreX"),
-                                IntegerArgumentType.getInteger(ctx, "knownOreZ")))))))
+                                IntegerArgumentType.getInteger(ctx, "knownOreZ"))))
+                        .then(Commands.argument("knownOreY", IntegerArgumentType.integer())
+                            .then(Commands.argument("knownOreZ2", IntegerArgumentType.integer())
+                                .executes(ctx -> scanCalibrate(
+                                    com.mojang.brigadier.arguments.LongArgumentType.getLong(ctx, "seed"),
+                                    IntegerArgumentType.getInteger(ctx, "knownOreX"),
+                                    IntegerArgumentType.getInteger(ctx, "knownOreY"),
+                                    IntegerArgumentType.getInteger(ctx, "knownOreZ2"))))))))
             .then(Commands.literal("save").executes(ctx -> scanSave()))
             .then(Commands.literal("list").executes(ctx -> scanList()))
             .then(Commands.literal("overlay")
@@ -743,6 +827,18 @@ final class AltoClefUtilityCommands {
         say("Brute-forcing feature index for seed=" + worldSeed
             + " known ore chunk (" + (knownOreX >> 4) + ", " + (knownOreZ >> 4) + ")...");
         int idx = OrePredictor.calibrate(worldSeed, knownOreX, knownOreZ);
+        return finishScanCalibrate(worldSeed, idx);
+    }
+
+    private static int scanCalibrate(long worldSeed, int knownOreX, int knownOreY, int knownOreZ) {
+        say("Brute-forcing feature index for seed=" + worldSeed
+            + " known ore " + knownOreX + ", " + knownOreY + ", " + knownOreZ
+            + " chunk (" + (knownOreX >> 4) + ", " + (knownOreZ >> 4) + ")...");
+        int idx = OrePredictor.calibrate(worldSeed, knownOreX, knownOreY, knownOreZ);
+        return finishScanCalibrate(worldSeed, idx);
+    }
+
+    private static int finishScanCalibrate(long worldSeed, int idx) {
         if (idx < 0) {
             say("Could not find a matching feature index (0-256). "
                 + "Check that the ore coordinates are correct and the seed matches.");
@@ -758,7 +854,8 @@ final class AltoClefUtilityCommands {
         adris.altoclef.AltoClef mod = NeoForgeAltoClefMod.port().core();
         if (mod == null) { say("Bot not loaded."); return 0; }
         net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-        // Force a fresh scan right now
+        // Force a fresh scan right now so mined blocks/stale cache entries don't get written as ore.
+        mod.getBlockTracker().forceRefresh();
         // Collect all tracked block types and get their known positions
         java.util.List<net.minecraft.world.level.block.Block> trackedBlocks = new java.util.ArrayList<>();
         for (String id : mod.getBlockTracker().getTrackedBlockIds()) {
@@ -768,6 +865,12 @@ final class AltoClefUtilityCommands {
         java.util.List<net.minecraft.core.BlockPos> all = trackedBlocks.isEmpty()
             ? java.util.List.of()
             : mod.getBlockTracker().getKnownLocations(trackedBlocks.toArray(new net.minecraft.world.level.block.Block[0]));
+        if (!all.isEmpty()) {
+            java.util.Set<net.minecraft.world.level.block.Block> trackedSet = new java.util.HashSet<>(trackedBlocks);
+            all = all.stream()
+                .filter(p -> mod.getWorld() != null && trackedSet.contains(mod.getWorld().getBlockState(p).getBlock()))
+                .toList();
+        }
         if (all.isEmpty()) {
             say("No tracked ore in current scan range. Make sure /cc mine is running and you're near ore.");
             return 1;
@@ -782,6 +885,7 @@ final class AltoClefUtilityCommands {
             java.nio.file.Files.createDirectories(out.getParent());
             java.util.List<String> lines = new java.util.ArrayList<>();
             lines.add("# Tracked ore positions at " + new java.util.Date());
+            if (mc.level != null) lines.add("# Dimension " + mc.level.dimension().location());
             for (net.minecraft.core.BlockPos p : all) {
                 net.minecraft.world.level.block.Block b = mod.getWorld().getBlockState(p).getBlock();
                 String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).toString();

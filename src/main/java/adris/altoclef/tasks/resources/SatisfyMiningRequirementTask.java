@@ -37,6 +37,8 @@ public class SatisfyMiningRequirementTask extends Task {
                 return TaskCatalogue.getItemTask(Items.IRON_PICKAXE, 1);
             case DIAMOND:
                 return TaskCatalogue.getItemTask(Items.DIAMOND_PICKAXE, 1);
+            case NETHERITE:
+                return TaskCatalogue.getItemTask(Items.NETHERITE_PICKAXE, 1);
         }
         return null;
     }

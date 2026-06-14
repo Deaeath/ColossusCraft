@@ -107,9 +107,14 @@ foreach ($src in $Sources) {
 # Write a clean, raw file using .NET Framework configuration (No BOM signature)
 [System.IO.File]::WriteAllLines($ArgFile, $ArgFileContent)
 
-# Execute javac using the @argfile flag wrapped safely in quotes for PowerShell
-& (Join-Path $Java 'javac.exe') '-J-Xmx512m' "@$ArgFile"
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# Execute javac — redirect stderr so PowerShell doesn't treat Note: lines as errors
+$ErrorLog = Join-Path $Build 'javac_errors.log'
+$prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+& (Join-Path $Java 'javac.exe') '-J-Xmx512m' "@$ArgFile" 2>$ErrorLog
+$javacExit = $LASTEXITCODE
+$ErrorActionPreference = $prev
+if (Test-Path $ErrorLog) { $errContent = Get-Content $ErrorLog -Raw; if ($errContent -match 'error:') { Write-Host $errContent -ForegroundColor Red; exit 1 } }
+if ($javacExit -ne 0) { exit $javacExit }
 
 Copy-Item -Recurse -Force (Join-Path $ModClasses '*') $JarRoot
 Copy-Item -Recurse -Force (Join-Path $Root 'src\main\resources\*') $JarRoot

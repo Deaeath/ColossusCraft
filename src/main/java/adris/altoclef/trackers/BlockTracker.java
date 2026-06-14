@@ -45,6 +45,14 @@ public class BlockTracker extends Tracker {
         return ids;
     }
 
+    public void forceRefresh() {
+        hasScanned = false;
+        lastScanTimeMs = 0L;
+        known.clear();
+        setDirty();
+        updateState();
+    }
+
     public BlockTracker(AltoClef mod, TrackerManager manager) {
         super(manager);
         this.mod = mod;

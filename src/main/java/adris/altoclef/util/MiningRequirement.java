@@ -11,7 +11,8 @@ public enum MiningRequirement {
     WOOD(Items.WOODEN_PICKAXE),
     STONE(Items.STONE_PICKAXE),
     IRON(Items.IRON_PICKAXE),
-    DIAMOND(Items.DIAMOND_PICKAXE);
+    DIAMOND(Items.DIAMOND_PICKAXE),
+    NETHERITE(Items.NETHERITE_PICKAXE);
 
     private final Item minPickaxe;
 

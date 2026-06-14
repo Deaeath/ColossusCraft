@@ -14,6 +14,7 @@ import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.Tags;
 
 import java.util.Optional;
 
@@ -63,7 +64,10 @@ public class DestroyBlockTask extends Task {
         ItemStack bestStack = StorageHelper.getItemStackInSlot(best.get());
         boolean faster = bestStack.getDestroySpeed(state) > currentStack.getDestroySpeed(state);
         boolean currentNotTool = !(currentStack.getItem() instanceof DiggerItem);
-        if (!best.get().equals(current) && (faster || currentNotTool)) {
+        boolean saveNetherite = StorageHelper.isVanillaNetheriteTool(currentStack)
+            && !state.is(Tags.Blocks.NEEDS_NETHERITE_TOOL)
+            && !StorageHelper.isVanillaNetheriteTool(bestStack);
+        if (!best.get().equals(current) && (faster || currentNotTool || saveNetherite)) {
             mod.getSlotHandler().forceEquipSlot(best.get());
             startedDestroying = false;
         }
