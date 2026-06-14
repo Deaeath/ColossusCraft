@@ -1,6 +1,6 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
-$ToolsVersion = '1.0.2'
+$ToolsVersion = '1.0.3'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Prism = Join-Path $env:APPDATA 'PrismLauncher'
 
@@ -178,3 +178,4 @@ Get-ChildItem $Mods -Filter 'pveguard-neoforge-1.21.1-*.jar' | Remove-Item -Forc
 Copy-Item -Force $ToolsOutput $ToolsInstalled
 
 Get-Item $ToolsInstalled
+
