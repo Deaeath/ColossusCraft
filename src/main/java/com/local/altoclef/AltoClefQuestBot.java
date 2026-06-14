@@ -621,12 +621,14 @@ public final class AltoClefQuestBot {
     }
 
     private static int gotoPos(int x, int y, int z) {
-        if (runBaritone("goto " + x + " " + y + " " + z)) {
-            say("ColossusCraft goto: " + x + " " + y + " " + z);
-            return 1;
-        }
-        say("ColossusCraft goto: nav command failed");
-        return 0;
+        net.minecraft.core.BlockPos target = new net.minecraft.core.BlockPos(x, y, z);
+        upstreamPort.core().runUserTask(
+            new adris.altoclef.tasks.movement.GetToBlockTask(target),
+            () -> say("ColossusCraft goto: arrived at " + x + " " + y + " " + z),
+            true
+        );
+        say("ColossusCraft goto: " + x + " " + y + " " + z);
+        return 1;
     }
 
     private static int gotoPlayer(String name) {

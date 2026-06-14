@@ -186,19 +186,19 @@ public final class PveGuard {
         if (!wardenFlee || !CORE.running()) return;
         if (com.local.altoclef.WardenTrapTask.isActive) return;
 
-        // Collect live warden references that are targeting us or too close
+        // Always maintain safe distance from any warden — passive, like MLG bucket.
+        // Suppressed only by WardenTrapTask.isActive or the wardenFlee toggle.
         List<Entity> threats = new ArrayList<>();
         for (Entity e : mc.level.entitiesForRendering()) {
             if (!(e instanceof Warden w) || !w.isAlive()) continue;
-            float dist = w.distanceTo(mc.player);
-            if ((w.getTarget() == mc.player && dist < 24) || dist < 10) threats.add(w);
+            if (w.distanceTo(mc.player) < 20) threats.add(w);
         }
 
         if (!threats.isEmpty()) {
             if (!fleeingWarden) {
                 fleeingWarden = true;
                 savedUserTask = CORE.core().getUserTaskChain().getCurrentTask();
-                fleeTargets = threats; // live entity refs — positions update automatically
+                fleeTargets = threats;
                 CORE.core().runUserTask(new RunAwayFromEntitiesTask(() -> fleeTargets, 20, 0.8) {}, () -> {
                     fleeingWarden = false;
                     Task toRestore = savedUserTask;
@@ -211,13 +211,10 @@ public final class PveGuard {
                         say("Warden gone.");
                     }
                 });
-                say("Warden targeting! Fleeing...");
+                say("Warden nearby — fleeing to safe distance...");
             } else {
-                // update live targets so flee task tracks any new wardens
                 fleeTargets = threats;
             }
-        } else if (fleeingWarden) {
-            // Warden list cleared — flee task will finish naturally via distance check
         }
     }
 
@@ -309,7 +306,9 @@ public final class PveGuard {
 
     private static void applyCoreSettings() {
         CORE.core().getModSettings().setMobDefense(combat);
-        CORE.core().getModSettings().setAutoEat(eating);
+        // Suppress auto-eat near sculk sensors — eating generates vibrations
+        boolean canEat = eating && !com.local.altoclef.AncientCityHelper.isSculkNearby();
+        CORE.core().getModSettings().setAutoEat(canEat);
         CORE.core().getModSettings().setDodgeProjectiles(combat);
         CORE.core().getModSettings().setDealWithAnnoyingHostiles(combat);
         CORE.core().getMobDefenseChain().setForceFieldRange(range);

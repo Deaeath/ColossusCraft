@@ -68,8 +68,11 @@ public class PlayerInteractionFixChain extends TaskChain {
                 if (bestToolSlot.isPresent() && !bestToolSlot.get().equals(currentEquipped)) {
                     // ONLY equip if the item class is STRICTLY different (otherwise we swap around a lot)
                     if (StorageHelper.getItemStackInSlot(currentEquipped).getItem() != StorageHelper.getItemStackInSlot(bestToolSlot.get()).getItem()) {
+                        boolean fromInventory = bestToolSlot.get().getInventorySlot() >= 9;
+                        boolean inventoryAllowed = baritone.api.BaritoneAPI.getSettings().allowInventory.value;
                         boolean isAllowedToManage = (!mod.getClientBaritone().getPathingBehavior().isPathing() ||
-                                bestToolSlot.get().getInventorySlot() >= 9) && !mod.getFoodChain().isTryingToEat();
+                                fromInventory) && !mod.getFoodChain().isTryingToEat()
+                                && (!fromInventory || inventoryAllowed);
                         if (isAllowedToManage) {
                             Debug.logMessage("Found better tool in inventory, equipping.");
                             ItemStack bestToolItemStack = StorageHelper.getItemStackInSlot(bestToolSlot.get());

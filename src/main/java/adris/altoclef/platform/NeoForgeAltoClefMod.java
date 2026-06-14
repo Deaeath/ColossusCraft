@@ -111,8 +111,7 @@ public final class NeoForgeAltoClefMod {
                 .then(Commands.literal("ai")
                         .then(Commands.argument("message", StringArgumentType.greedyString())
                                 .executes(ctx -> AiChat.query(StringArgumentType.getString(ctx, "message")))))
-                .then(AncientCityHelper.sneakCommand())
-                .then(AncientCityHelper.mineCommand());
+                .then(AncientCityHelper.sneakCommand());
         event.getDispatcher().register(extra);
     }
 

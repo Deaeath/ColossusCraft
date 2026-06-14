@@ -981,8 +981,10 @@ public class WardenTrapTask extends Task {
                         // Last resort: no blocks, no LOS — fall through to melee
                         // (warden is trapped; we accept the risk)
                     }
-                    // Melee fallback — only when warden is nearly dead; otherwise wait for a shot angle
-                    if (warden.getHealth() > FINISH_HP) {
+                    // Melee fallback — only when warden is nearly dead OR we have no ranged weapon.
+                    // If we have a ranged weapon but no LOS yet, circle until we find an angle.
+                    // If no ranged weapon at all, don't loop forever — just melee the trapped warden.
+                    if (warden.getHealth() > FINISH_HP && hasRangedWeapon(mod)) {
                         setDebugState("No shot angle; circling for LOS (HP=" + (int) warden.getHealth() + ")");
                         BlockPos circle = safeRetreatPos(mod, warden, (int) SONIC_BOOM_SAFE_DIST - 2);
                         return new GetToBlockTask(circle);

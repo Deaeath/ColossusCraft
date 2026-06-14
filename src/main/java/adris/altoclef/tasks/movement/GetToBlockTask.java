@@ -12,8 +12,6 @@ import net.minecraft.world.level.block.state.BlockState;
 public class GetToBlockTask extends Task {
     private final BlockPos target;
     private final Dimension dimension;
-    private int commandCooldown;
-
     public GetToBlockTask(BlockPos target) {
         this(target, null);
     }
@@ -29,9 +27,7 @@ public class GetToBlockTask extends Task {
     }
 
     @Override
-    protected void onStart(AltoClef mod) {
-        commandCooldown = 0;
-    }
+    protected void onStart(AltoClef mod) {}
 
     @Override
     protected Task onTick(AltoClef mod) {
@@ -40,12 +36,10 @@ public class GetToBlockTask extends Task {
         }
         Task clear = clearPathClutter(mod);
         if (clear != null) {
-            commandCooldown = 0;
             setDebugState("Clear path clutter near " + target.toShortString());
             return clear;
         }
-        if (commandCooldown-- <= 0) {
-            commandCooldown = 40;
+        if (!mod.getClientBaritone().getPathingBehavior().isPathing()) {
             mod.runBaritone("goto " + target.getX() + " " + target.getY() + " " + target.getZ());
         }
         setDebugState("Goto " + target.toShortString());

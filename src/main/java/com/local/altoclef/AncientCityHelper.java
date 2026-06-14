@@ -2,7 +2,7 @@ package com.local.altoclef;
 
 import adris.altoclef.platform.NeoForgeAltoClefMod;
 import baritone.api.BaritoneAPI;
-import baritone.api.utils.input.Input;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.client.Minecraft;
@@ -34,13 +34,20 @@ import java.util.List;
 public final class AncientCityHelper {
     private static final int FREEZE_ANGER = 70;
     private static final int FREEZE_RANGE = 24;
-    private static final int SCULK_SCAN_RANGE = 10; // sculk sensor detection range is 8 blocks
+    private static final int SCULK_SCAN_RANGE = 10;
+
+    enum SneakMode { ON, PACKET, OFF }
 
     private static boolean initialized;
-    private static boolean manualSneak = false;
+    private static SneakMode sneakMode = SneakMode.PACKET;
     private static boolean frozen = false;
-    private static boolean sculkNearby = false;   // cached sculk sensor/shrieker proximity
-    private static int sculkScanCooldown = 0;
+    private static boolean serverSneaking = false;
+    private static int sneakResendCooldown = 0;
+    private static boolean _sculkNearby = false;
+    private static int _sculkScanCooldown = 0;
+
+    /** True when a sculk sensor or shrieker is within range — other systems should suppress noisy actions. */
+    public static boolean isSculkNearby() { return _sculkNearby; }
 
     private AncientCityHelper() {}
 
@@ -52,8 +59,9 @@ public final class AncientCityHelper {
 
     public static LiteralArgumentBuilder<CommandSourceStack> sneakCommand() {
         return Commands.literal("sneak")
-                .then(Commands.literal("on").executes(ctx -> setSneak(true)))
-                .then(Commands.literal("off").executes(ctx -> setSneak(false)))
+                .then(Commands.literal("on").executes(ctx -> setSneak(SneakMode.ON)))
+                .then(Commands.literal("packet").executes(ctx -> setSneak(SneakMode.PACKET)))
+                .then(Commands.literal("off").executes(ctx -> setSneak(SneakMode.OFF)))
                 .then(Commands.literal("status").executes(ctx -> status()));
     }
 
@@ -112,7 +120,8 @@ public final class AncientCityHelper {
                     frozen = true;
                     say("Warden nearby — holding still (anger " + angryWarden.getClientAngerLevel() + ")");
                 }
-                applySneak(true);
+                applyPacketSneak(true);
+                applyClientSneak(true);
                 return;
             }
         }
@@ -121,38 +130,53 @@ public final class AncientCityHelper {
             say("Warden calmed — resuming");
         }
 
-        // Sneak near sculk sensors/shriekers only — scan every 5 ticks
-        if (--sculkScanCooldown <= 0) {
-            sculkScanCooldown = 5;
-            sculkNearby = isSculkNearby(mc, player);
+        // Update sculk proximity cache every 5 ticks
+        if (--_sculkScanCooldown <= 0) {
+            _sculkScanCooldown = 5;
+            _sculkNearby = scanSculkNearby(mc, player);
         }
 
-        boolean wardenNearby = nearbyAngryWarden(mc, player) != null;
-        boolean shouldSneak = (manualSneak || sculkNearby) && !wardenNearby;
-        applySneak(shouldSneak);
+        switch (sneakMode) {
+            case ON -> { applyPacketSneak(true);  applyClientSneak(true); }
+            case PACKET -> { applyPacketSneak(true);  applyClientSneak(false); }
+            case OFF -> { applyPacketSneak(false); applyClientSneak(false); }
+        }
     }
 
-    private static boolean isSculkNearby(Minecraft mc, LocalPlayer player) {
+    private static boolean scanSculkNearby(Minecraft mc, LocalPlayer player) {
         BlockPos origin = player.blockPosition();
         int r = SCULK_SCAN_RANGE;
-        for (int x = -r; x <= r; x++) {
-            for (int y = -r; y <= r; y++) {
+        for (int x = -r; x <= r; x++)
+            for (int y = -r; y <= r; y++)
                 for (int z = -r; z <= r; z++) {
                     Block b = mc.level.getBlockState(origin.offset(x, y, z)).getBlock();
                     if (b == Blocks.SCULK_SENSOR || b == Blocks.CALIBRATED_SCULK_SENSOR
                             || b == Blocks.SCULK_SHRIEKER) return true;
                 }
-            }
-        }
         return false;
     }
 
-    private static void applySneak(boolean on) {
-        try {
-            var bar = BaritoneAPI.getProvider().getPrimaryBaritone();
-            bar.getInputOverrideHandler().setInputForceState(Input.SNEAK, on);
-            BaritoneAPI.getSettings().allowSprint.value = !on;
-        } catch (Throwable ignored) {}
+    /** Tells the server we are sneaking without applying client-side ledge protection. */
+    private static void applyPacketSneak(boolean on) {
+        boolean stateChanged = on != serverSneaking;
+        boolean resendDue = on && --sneakResendCooldown <= 0;
+        if (!stateChanged && !resendDue) return;
+        if (resendDue) sneakResendCooldown = 40; // re-assert every 2s
+        serverSneaking = on;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && mc.getConnection() != null) {
+            mc.getConnection().send(new ServerboundPlayerCommandPacket(
+                mc.player,
+                on ? ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY
+                   : ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY
+            ));
+        }
+    }
+
+    /** Applies real client-side sneak (ledge protection, slow movement). */
+    private static void applyClientSneak(boolean on) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.options.keyShift.isDown() != on) mc.options.keyShift.setDown(on);
     }
 
     private static Warden nearbyAngryWarden(Minecraft mc, LocalPlayer player) {
@@ -215,14 +239,17 @@ public final class AncientCityHelper {
 
     /** Programmatic sneak control for tasks (does not print a message). */
     public static void setManualSneak(boolean on) {
-        manualSneak = on;
-        applySneak(on);
+        sneakMode = on ? SneakMode.ON : SneakMode.PACKET;
     }
 
-    private static int setSneak(boolean on) {
-        manualSneak = on;
-        applySneak(on);
-        say("Sneak mode: " + (on ? "ON" : "OFF"));
+    private static int setSneak(SneakMode mode) {
+        sneakMode = mode;
+        if (mode == SneakMode.OFF) { applyPacketSneak(false); applyClientSneak(false); }
+        say("Sneak: " + switch (mode) {
+            case ON     -> "ON (real sneak — ledge protection active)";
+            case PACKET -> "PACKET (server sees sneak, client moves freely)";
+            case OFF    -> "OFF (sensors can trigger)";
+        });
         return 1;
     }
 
@@ -231,7 +258,8 @@ public final class AncientCityHelper {
         boolean inDeepDark = mc.player != null && mc.level != null
                 && mc.level.getBiome(mc.player.blockPosition()).is(Biomes.DEEP_DARK);
         Warden w = mc.player != null ? nearbyAngryWarden(mc, mc.player) : null;
-        say("Sneak: manual=" + manualSneak + " deepDark=" + inDeepDark + " frozen=" + frozen
+        say("Sneak: " + sneakMode + " serverSneaking=" + serverSneaking + " deepDark=" + inDeepDark
+                + " frozen=" + frozen
                 + (w != null ? " warden-anger=" + w.getClientAngerLevel() : " warden=none"));
         return 1;
     }

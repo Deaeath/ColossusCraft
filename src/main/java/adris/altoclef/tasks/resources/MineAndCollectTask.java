@@ -111,11 +111,14 @@ public class MineAndCollectTask extends ResourceTask {
 
     @Override
     protected Task onResourceTick(AltoClef mod) {
-        if (!StorageHelper.miningRequirementMet(mod, _requirement)) {
+        boolean allowInventory = baritone.api.BaritoneAPI.getSettings().allowInventory.value;
+        // Only pull tools from inventory if allowInventory is on; hotbar tools are always usable.
+        if (!StorageHelper.miningRequirementMet(mod, _requirement) && allowInventory) {
             return new SatisfyMiningRequirementTask(_requirement);
         }
 
-        if (_subtask.isMining()) {
+        // makeSureToolIsEquipped only moves cursor-slot items — skip when inventory is locked.
+        if (_subtask.isMining() && allowInventory) {
             makeSureToolIsEquipped(mod);
         }
 
