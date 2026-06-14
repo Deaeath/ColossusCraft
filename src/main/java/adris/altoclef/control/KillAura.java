@@ -10,6 +10,7 @@ import adris.altoclef.util.time.TimerGame;
 import baritone.api.utils.input.Input;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.hoglin.Hoglin;
 import net.minecraft.world.entity.boss.wither.WitherBoss;
 import net.minecraft.world.entity.monster.Blaze;
@@ -117,7 +118,8 @@ public class KillAura {
                 !mod.getMLGBucketChain().isFallingOhNo(mod) && mod.getMLGBucketChain().doneMLG(mod) &&
                 !mod.getMLGBucketChain().isChorusFruiting() &&
                 !mod.getPlayer().getCooldowns().isOnCooldown(offhandItem)) {
-            if (entities.get().getClass() != Creeper.class && entities.get().getClass() != Hoglin.class &&
+            if (entities.get() instanceof Monster &&
+                    entities.get().getClass() != Creeper.class && entities.get().getClass() != Hoglin.class &&
                     entities.get().getClass() != Zoglin.class && entities.get().getClass() != Warden.class &&
                     entities.get().getClass() != WitherBoss.class) {
                 LookHelper.lookAt(mod, entities.get().getEyePosition());
