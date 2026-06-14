@@ -2,6 +2,7 @@ package adris.altoclef.tasks.movement;
 
 import adris.altoclef.AltoClef;
 import adris.altoclef.tasksystem.Task;
+import adris.altoclef.trackers.ChunkScanCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceKey;
@@ -26,18 +27,27 @@ import net.minecraft.world.phys.Vec3;
  */
 public class SpiralSearchTask extends Task {
 
-    // Must match BlockTracker's horizontal scan range.
-    private static final int SCAN_RADIUS = 48;
+    // Must match BlockTracker's horizontal scan range (Settings.blockScanHorizontalRange).
+    private static final int SCAN_RADIUS = 64;
 
     // Distance between spiral waypoints: 2 × scan radius = no overlap, no gap.
-    private static final int STEP_BLOCKS = SCAN_RADIUS * 2; // 96 blocks
+    private static final int STEP_BLOCKS = SCAN_RADIUS * 2; // 128 blocks
 
     // Arrive threshold: half a step so we don't overshoot the scan zone.
     private static final int ARRIVE_RADIUS_SQ = (STEP_BLOCKS / 2) * (STEP_BLOCKS / 2);
 
+    // Advance to next waypoint if stuck here longer than this many ticks (~30s).
+    private static final int STUCK_TIMEOUT_TICKS = 600;
+
     // If set, the spiral skips waypoints not in this biome (up to MAX_BIOME_SKIPS times before giving up).
     private static final int MAX_BIOME_SKIPS = 3;
     private final ResourceKey<Biome> _preferredBiome;
+
+    // Optional: if set, spiral cells confirmed empty (CLEAN) are skipped automatically.
+    // Each spiral step = STEP_BLOCKS wide = (STEP_BLOCKS/16) chunks per axis.
+    private static final int HALF_CELL_CHUNKS = STEP_BLOCKS / 2 / 16; // 4 chunks
+    private static final int MAX_CLEAN_SKIPS = 1000; // safety cap — stop infinite-looping if everything's clean
+    private ChunkScanCache _chunkCache;
 
     private final int _originX;  // world-block origin
     private final int _originZ;
@@ -52,29 +62,36 @@ public class SpiralSearchTask extends Task {
 
     private BlockPos _currentTarget;
     private int _gotoCooldown = 0;
+    private int _stuckTicks = 0;
 
     /**
-     * @param origin  start position (world coords)
-     * @param targetY Y level to travel at while searching (use surface Y for
-     *                surface blocks, ore Y for underground blocks)
+     * @param origin      start position (world coords)
+     * @param targetY     Y level to travel at while searching
+     * @param preferredBiome  optional — skip cells outside this biome
+     * @param chunkCache  optional — skip cells already confirmed CLEAN
      */
-    public SpiralSearchTask(BlockPos origin, int targetY, ResourceKey<Biome> preferredBiome) {
+    public SpiralSearchTask(BlockPos origin, int targetY, ResourceKey<Biome> preferredBiome, ChunkScanCache chunkCache) {
         _originX = origin.getX();
         _originZ = origin.getZ();
         _targetY = targetY;
         _preferredBiome = preferredBiome;
+        _chunkCache = chunkCache;
+    }
+
+    public SpiralSearchTask(BlockPos origin, int targetY, ResourceKey<Biome> preferredBiome) {
+        this(origin, targetY, preferredBiome, null);
     }
 
     public SpiralSearchTask(BlockPos origin, int targetY) {
-        this(origin, targetY, null);
+        this(origin, targetY, null, null);
     }
 
     public SpiralSearchTask(BlockPos origin) {
-        this(origin, origin.getY(), null);
+        this(origin, origin.getY(), null, null);
     }
 
     public SpiralSearchTask(BlockPos origin, ResourceKey<Biome> preferredBiome) {
-        this(origin, origin.getY(), preferredBiome);
+        this(origin, origin.getY(), preferredBiome, null);
     }
 
     private BlockPos advanceSpiral() {
@@ -96,20 +113,35 @@ public class SpiralSearchTask extends Task {
             _originZ + _dz * STEP_BLOCKS);
     }
 
+    private boolean isCellClean(BlockPos center) {
+        if (_chunkCache == null) return false;
+        int cx = center.getX() >> 4;
+        int cz = center.getZ() >> 4;
+        return _chunkCache.isCellClean(cx - HALF_CELL_CHUNKS, cz - HALF_CELL_CHUNKS,
+                                        cx + HALF_CELL_CHUNKS, cz + HALF_CELL_CHUNKS);
+    }
+
     private BlockPos nextPreferredWaypoint(AltoClef mod) {
-        if (_preferredBiome == null || mod.getWorld() == null) return advanceSpiral();
-        for (int i = 0; i < MAX_BIOME_SKIPS; i++) {
+        // Skip cells that are confirmed empty AND (optionally) wrong biome.
+        // Cap iterations so we don't infinite-loop if the whole world is scanned.
+        int maxSkips = Math.max(MAX_BIOME_SKIPS, _chunkCache != null ? MAX_CLEAN_SKIPS : MAX_BIOME_SKIPS);
+        for (int i = 0; i < maxSkips; i++) {
             BlockPos candidate = advanceSpiral();
-            Holder<Biome> biome = mod.getWorld().getBiome(candidate);
-            if (biome.is(_preferredBiome)) return candidate;
+            boolean biomeOk = _preferredBiome == null || mod.getWorld() == null
+                    || mod.getWorld().getBiome(candidate).is(_preferredBiome);
+            boolean notClean = !isCellClean(candidate);
+            if (biomeOk && notClean) return candidate;
+            // If only biome is wrong but we've exhausted normal skips, keep going (clean skip budget).
+            // If only clean is wrong (cell has ore), we want it — biome check is secondary.
         }
-        return advanceSpiral(); // give up, go wherever
+        return advanceSpiral(); // safety: accept anything after cap
     }
 
     @Override
     protected void onStart(AltoClef mod) {
         _currentTarget = nextPreferredWaypoint(mod);
         _gotoCooldown = 0;
+        _stuckTicks = 0;
     }
 
     @Override
@@ -117,9 +149,12 @@ public class SpiralSearchTask extends Task {
         Vec3 pos = mod.getPlayer().position();
         double distSq = (_currentTarget.getX() - pos.x) * (_currentTarget.getX() - pos.x)
                       + (_currentTarget.getZ() - pos.z) * (_currentTarget.getZ() - pos.z);
-        if (distSq < ARRIVE_RADIUS_SQ) {
+        boolean arrived = distSq < ARRIVE_RADIUS_SQ;
+        boolean stuck = ++_stuckTicks >= STUCK_TIMEOUT_TICKS;
+        if (arrived || stuck) {
             _currentTarget = nextPreferredWaypoint(mod);
             _gotoCooldown = 0;
+            _stuckTicks = 0;
         }
 
         if (_gotoCooldown-- <= 0) {

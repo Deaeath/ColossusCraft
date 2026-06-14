@@ -80,6 +80,31 @@ public final class AltoClefCompletions {
         return suggest(builder, LOCATIONS);
     }
 
+    public static CompletableFuture<Suggestions> suggestBlocks(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        return suggest(builder, blockSuggestionNames());
+    }
+
+    /** Fuzzy-rank all registered blocks and return the best match, or null. */
+    public static net.minecraft.world.level.block.Block resolveBlock(String input) {
+        String query = normalizeKey(normalizeItemName(input));
+        net.minecraft.world.level.block.Block best = null;
+        int bestScore = Integer.MAX_VALUE;
+        for (ResourceLocation key : net.minecraft.core.registries.BuiltInRegistries.BLOCK.keySet()) {
+            net.minecraft.world.level.block.Block b = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(key);
+            if (b == null || b == net.minecraft.world.level.block.Blocks.AIR) continue;
+            String path = key.getPath();
+            String full = key.toString();
+            int score = Math.min(rank(query, path), rank(query, full));
+            // Prefer non-minecraft namespace for ambiguous short names
+            if (key.getNamespace().equals("minecraft")) score += 50;
+            if (score < bestScore) {
+                bestScore = score;
+                best = b;
+            }
+        }
+        return bestScore < 5000 ? best : null;
+    }
+
     static ItemMatch resolveItem(String input) {
         String query = normalizeKey(normalizeItemName(input));
         ItemCandidate best = null;
@@ -185,6 +210,22 @@ public final class AltoClefCompletions {
             entitySuggestions = List.copyOf(names);
         }
         return entitySuggestions;
+    }
+
+    private static List<String> blockSuggestions;
+
+    private static List<String> blockSuggestionNames() {
+        if (blockSuggestions == null) {
+            LinkedHashSet<String> names = new LinkedHashSet<>();
+            for (ResourceLocation key : net.minecraft.core.registries.BuiltInRegistries.BLOCK.keySet()) {
+                net.minecraft.world.level.block.Block b = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(key);
+                if (b == null || b == net.minecraft.world.level.block.Blocks.AIR) continue;
+                names.add(key.toString());  // full namespace:path
+                names.add(key.getPath());   // short path
+            }
+            blockSuggestions = List.copyOf(names);
+        }
+        return blockSuggestions;
     }
 
     private static List<ItemCandidate> itemCandidateList() {

@@ -25,10 +25,25 @@ public class BlockTracker extends Tracker {
     // Throttle it: reuse the cached `known` map and only rescan when the tracked-block set
     // changes or a short interval elapses. Without this, every getKnownLocations() call (many
     // per tick) triggers a fresh ~600k-block scan and collapses the client frame rate.
-    private static final long SCAN_INTERVAL_MS = 1000;
+    public static long SCAN_INTERVAL_MS = 3000;
     private long lastScanTimeMs = 0;
     private boolean hasScanned = false;
     private int lastTrackedHash = -1;
+
+    private final ChunkScanCache chunkCache = new ChunkScanCache();
+
+    public ChunkScanCache getChunkCache() { return chunkCache; }
+
+    /** Returns the currently tracked block IDs as resource location strings. */
+    public java.util.List<String> getTrackedBlockIds() {
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (Block b : trackingBlocks.keySet()) {
+            net.minecraft.resources.ResourceLocation key = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b);
+            if (key != null) ids.add(key.toString());
+        }
+        java.util.Collections.sort(ids);
+        return ids;
+    }
 
     public BlockTracker(AltoClef mod, TrackerManager manager) {
         super(manager);
@@ -49,6 +64,7 @@ public class BlockTracker extends Tracker {
         for (Block block : blocks) {
             trackingBlocks.put(block, trackingBlocks.getOrDefault(block, 0) + 1);
         }
+        chunkCache.reset(); // tracked set changed — old clean marks are invalid
         setDirty();
     }
 
@@ -58,6 +74,7 @@ public class BlockTracker extends Tracker {
             if (count <= 0) trackingBlocks.remove(block);
             else trackingBlocks.put(block, count);
         }
+        chunkCache.reset(); // tracked set changed — old clean marks are invalid
         setDirty();
     }
 
@@ -184,14 +201,38 @@ public class BlockTracker extends Tracker {
         int horizontal = mod.getModSettings().getBlockScanHorizontalRange();
         int vertical = mod.getModSettings().getBlockScanVerticalRange();
         BlockPos center = mod.getPlayer().blockPosition();
+        // Scan full range downward, only 16 blocks upward — ores are always below.
         BlockPos min = center.offset(-horizontal, -vertical, -horizontal);
-        BlockPos max = center.offset(horizontal, vertical, horizontal);
+        BlockPos max = center.offset(horizontal, 16, horizontal);
         Set<Block> tracked = trackingBlocks.keySet();
         for (BlockPos scan : BlockPos.betweenClosed(min, max)) {
             BlockPos pos = scan.immutable();
             Block block = mod.getWorld().getBlockState(pos).getBlock();
             if (tracked.contains(block) && !unreachable(pos)) {
                 known.computeIfAbsent(block, ignored -> new ArrayList<>()).add(pos);
+            }
+        }
+
+        // Mark chunk columns in the scan footprint as HAS_ORE or CLEAN.
+        // This lets SpiralSearchTask skip confirmed-empty regions on future passes.
+        Set<Long> chunksWithOre = new HashSet<>();
+        for (List<BlockPos> positions : known.values()) {
+            for (BlockPos pos : positions) {
+                int cx = pos.getX() >> 4, cz = pos.getZ() >> 4;
+                long key = ((long) cx << 32) | (cz & 0xFFFFFFFFL);
+                if (chunksWithOre.add(key)) {
+                    chunkCache.mark(cx, cz, ChunkScanCache.State.HAS_ORE);
+                }
+            }
+        }
+        int minCx = min.getX() >> 4, maxCx = max.getX() >> 4;
+        int minCz = min.getZ() >> 4, maxCz = max.getZ() >> 4;
+        for (int cx = minCx; cx <= maxCx; cx++) {
+            for (int cz = minCz; cz <= maxCz; cz++) {
+                long key = ((long) cx << 32) | (cz & 0xFFFFFFFFL);
+                if (!chunksWithOre.contains(key)) {
+                    chunkCache.mark(cx, cz, ChunkScanCache.State.CLEAN);
+                }
             }
         }
     }
@@ -202,5 +243,6 @@ public class BlockTracker extends Tracker {
         unreachable.clear();
         hasScanned = false;
         lastTrackedHash = -1;
+        chunkCache.reset();
     }
 }

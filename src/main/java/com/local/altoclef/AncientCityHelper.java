@@ -139,7 +139,7 @@ public final class AncientCityHelper {
         switch (sneakMode) {
             case ON -> { applyPacketSneak(true);  applyClientSneak(true); }
             case PACKET -> { applyPacketSneak(true);  applyClientSneak(false); }
-            case OFF -> { applyPacketSneak(false); applyClientSneak(false); }
+            case OFF -> { applyPacketSneak(false); } // leave client sneak key alone so player can sneak manually
         }
     }
 

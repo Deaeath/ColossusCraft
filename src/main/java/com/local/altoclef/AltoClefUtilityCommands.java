@@ -77,28 +77,62 @@ final class AltoClefUtilityCommands {
             .then(gearBranch())
             .then(stashBranch())
             .then(avoidBlockBranch())
-            .then(mineBranch());
+            .then(mineBranch())
+            .then(scanBranch());
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> mineBranch() {
         // Accepts: mine <block> [count]  OR  mine <count> <block1> <block2> ...
         return Commands.literal("mine")
             .then(Commands.argument("args", StringArgumentType.greedyString())
+                .suggests(AltoClefUtilityCommands::suggestMineArgs)
                 .executes(ctx -> mineArgs(StringArgumentType.getString(ctx, "args").trim())));
     }
 
-    // Blocks that only generate in the deep dark biome.
-    private static final java.util.Set<String> DEEP_DARK_ORES = java.util.Set.of(
-        "allthemodium_ore", "allthemodium:allthemodium_ore",
-        "unobtainium_ore", "allthemodium:unobtainium_ore",
-        "vibranium_ore",   "allthemodium:vibranium_ore"
+    /** Suggests block names for each whitespace-separated token in the mine greedy arg. */
+    private static java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> suggestMineArgs(
+            com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx,
+            com.mojang.brigadier.suggestion.SuggestionsBuilder builder) {
+        String remaining = builder.getRemaining();
+        // Skip numeric tokens and --biome flag values so we suggest blocks, not counts
+        int lastSpace = remaining.lastIndexOf(' ');
+        if (lastSpace >= 0) {
+            String lastToken = remaining.substring(lastSpace + 1);
+            // If previous token was --biome, suggest biomes not blocks
+            String trimmed = remaining.substring(0, lastSpace).trim();
+            if (trimmed.endsWith("--biome")) {
+                return AltoClefCompletions.suggestLocations(ctx,
+                        builder.createOffset(builder.getStart() + lastSpace + 1));
+            }
+            builder = builder.createOffset(builder.getStart() + lastSpace + 1);
+        }
+        return AltoClefCompletions.suggestBlocks(ctx, builder);
+    }
+
+    // Companion blocks to auto-add when mining modded ores that have multiple block variants.
+    // allthemodium generates as allthemodium_ore (stone) OR allthemodium_slate_ore (deepslate).
+    // In the mining dimension, only the slate variant generates (Y=129 deepslate layer).
+    private static final java.util.Map<String, java.util.List<String>> ORE_COMPANIONS = java.util.Map.of(
+        "allthemodium:allthemodium_ore",       java.util.List.of("allthemodium:allthemodium_slate_ore"),
+        "allthemodium:allthemodium_slate_ore", java.util.List.of("allthemodium:allthemodium_ore"),
+        "allthemodium:vibranium_ore",          java.util.List.of("allthemodium:other_vibranium_ore"),
+        "allthemodium:other_vibranium_ore",    java.util.List.of("allthemodium:vibranium_ore"),
+        "allthemodium:unobtainium_ore",        java.util.List.of()
     );
 
-    private static ResourceKey<Biome> inferBiome(java.util.List<String> resolvedBlockIds) {
-        for (String id : resolvedBlockIds) {
-            String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
-            if (DEEP_DARK_ORES.contains(id) || DEEP_DARK_ORES.contains(path)) return Biomes.DEEP_DARK;
+    /** Expand a resolved block ID list to include known companion ore blocks (same ore, different substrate). */
+    private static java.util.List<String> addCompanions(java.util.List<String> ids) {
+        java.util.LinkedHashSet<String> expanded = new java.util.LinkedHashSet<>(ids);
+        for (String id : ids) {
+            java.util.List<String> companions = ORE_COMPANIONS.get(id);
+            if (companions != null) expanded.addAll(companions);
         }
+        return new java.util.ArrayList<>(expanded);
+    }
+
+    private static ResourceKey<Biome> inferBiome(java.util.List<String> resolvedBlockIds) {
+        // ATM ores generate in the allthemodium:mining dimension, not deep dark.
+        // No automatic biome inference needed — the bot follows dimension routing separately.
         return null;
     }
 
@@ -140,13 +174,21 @@ final class AltoClefUtilityCommands {
             return 0;
         }
 
-        java.util.List<Block> blocks = new java.util.ArrayList<>();
         java.util.List<String> resolved = new java.util.ArrayList<>();
         for (int i = blockStart; i < parts.length; i++) {
             Block b = resolveBlock(parts[i]);
             if (b == null) { say("Unknown block: " + parts[i]); return 0; }
-            blocks.add(b);
             resolved.add(BuiltInRegistries.BLOCK.getKey(b).toString());
+        }
+        // Expand with companion ore variants (e.g. allthemodium_ore ↔ allthemodium_slate_ore).
+        resolved = addCompanions(resolved);
+
+        java.util.List<Block> blocks = new java.util.ArrayList<>();
+        for (String id : resolved) {
+            net.minecraft.resources.ResourceLocation loc = net.minecraft.resources.ResourceLocation.tryParse(id);
+            if (loc == null) continue;
+            Block b = BuiltInRegistries.BLOCK.get(loc);
+            if (b != null && b != net.minecraft.world.level.block.Blocks.AIR) blocks.add(b);
         }
 
         adris.altoclef.util.MiningRequirement req = blocks.stream()
@@ -169,20 +211,7 @@ final class AltoClefUtilityCommands {
     }
 
     private static Block resolveBlock(String blockId) {
-        if (blockId.contains(":")) {
-            Block b = BuiltInRegistries.BLOCK.get(ResourceLocation.tryParse(blockId));
-            return (b != null && b != net.minecraft.world.level.block.Blocks.AIR) ? b : null;
-        }
-        Block fallback = null;
-        for (ResourceLocation key : BuiltInRegistries.BLOCK.keySet()) {
-            if (key.getPath().equals(blockId)) {
-                Block b = BuiltInRegistries.BLOCK.get(key);
-                if (b == null || b == net.minecraft.world.level.block.Blocks.AIR) continue;
-                if (!key.getNamespace().equals("minecraft")) return b;
-                fallback = b;
-            }
-        }
-        return fallback;
+        return AltoClefCompletions.resolveBlock(blockId);
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> avoidBlockBranch() {
@@ -388,10 +417,25 @@ final class AltoClefUtilityCommands {
     }
 
 
+    // Auto-save chunk cache every ~5 minutes (6000 ticks) while a scan is active.
+    private static int _cacheSaveTick = 0;
     private static void clientTick(ClientTickEvent.Post event) {
-        if (!DAEMONS.anyActive() || DAEMONS.paused || ++tick % 10 != 0 || !playerReady()) {
+        // Periodic chunk cache save (every 6000 ticks ≈ 5 min)
+        if (++_cacheSaveTick >= 6000) {
+            _cacheSaveTick = 0;
+            adris.altoclef.AltoClef mod = PORT.core();
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mod != null && mc.level != null && mod.getBlockTracker().getChunkCache().countScanned() > 0) {
+                String dim = mc.level.dimension().location().getPath();
+                adris.altoclef.trackers.ChunkCachePersistence.save(
+                    mod.getBlockTracker().getChunkCache(), dim, mod.getBlockTracker().getTrackedBlockIds());
+            }
+        }
+        if (!DAEMONS.anyActive() || DAEMONS.paused || tick % 10 != 0 || !playerReady()) {
+            tick++;
             return;
         }
+        tick++;
         ensureCore();
         if (hasUserTask()) {
             return;
@@ -591,6 +635,174 @@ final class AltoClefUtilityCommands {
     private static int unknown(String item) {
         say("Unknown item: " + item);
         return 0;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> scanBranch() {
+        return Commands.literal("scan")
+            .executes(ctx -> scanStatus())
+            .then(Commands.literal("status").executes(ctx -> scanStatus()))
+            .then(Commands.literal("predict")
+                // /cc scan predict             → auto-detect seed, 512 chunk radius
+                .executes(ctx -> scanPredictAuto(512, OrePredictor.defaultFeatureIndex))
+                .then(Commands.argument("seed", com.mojang.brigadier.arguments.LongArgumentType.longArg())
+                    .executes(ctx -> scanPredict(com.mojang.brigadier.arguments.LongArgumentType.getLong(ctx, "seed"), 512, OrePredictor.defaultFeatureIndex))
+                    .then(Commands.argument("radiusChunks", IntegerArgumentType.integer(1, 4096))
+                        .executes(ctx -> scanPredict(
+                            com.mojang.brigadier.arguments.LongArgumentType.getLong(ctx, "seed"),
+                            IntegerArgumentType.getInteger(ctx, "radiusChunks"),
+                            OrePredictor.defaultFeatureIndex))
+                        .then(Commands.argument("featureIdx", IntegerArgumentType.integer(0, 256))
+                            .executes(ctx -> scanPredict(
+                                com.mojang.brigadier.arguments.LongArgumentType.getLong(ctx, "seed"),
+                                IntegerArgumentType.getInteger(ctx, "radiusChunks"),
+                                IntegerArgumentType.getInteger(ctx, "featureIdx")))))))
+            .then(Commands.literal("calibrate")
+                // /cc scan calibrate <x> <z>  → auto-detect seed
+                .then(Commands.argument("knownOreX", IntegerArgumentType.integer())
+                    .then(Commands.argument("knownOreZ", IntegerArgumentType.integer())
+                        .executes(ctx -> scanCalibrateAuto(
+                            IntegerArgumentType.getInteger(ctx, "knownOreX"),
+                            IntegerArgumentType.getInteger(ctx, "knownOreZ")))))
+                .then(Commands.argument("seed", com.mojang.brigadier.arguments.LongArgumentType.longArg())
+                    .then(Commands.argument("knownOreX", IntegerArgumentType.integer())
+                        .then(Commands.argument("knownOreZ", IntegerArgumentType.integer())
+                            .executes(ctx -> scanCalibrate(
+                                com.mojang.brigadier.arguments.LongArgumentType.getLong(ctx, "seed"),
+                                IntegerArgumentType.getInteger(ctx, "knownOreX"),
+                                IntegerArgumentType.getInteger(ctx, "knownOreZ")))))))
+            .then(Commands.literal("save").executes(ctx -> scanSave()))
+            .then(Commands.literal("overlay")
+                .executes(ctx -> overlayToggle())
+                .then(Commands.literal("on").executes(ctx -> overlaySet(true)))
+                .then(Commands.literal("off").executes(ctx -> overlaySet(false))))
+            .then(Commands.literal("h").then(Commands.argument("blocks", IntegerArgumentType.integer(8, 512))
+                .executes(ctx -> {
+                    NeoForgeAltoClefMod.port().core().getModSettings().setBlockScanHorizontalRange(IntegerArgumentType.getInteger(ctx, "blocks"));
+                    return scanStatus();
+                })))
+            .then(Commands.literal("v").then(Commands.argument("blocks", IntegerArgumentType.integer(8, 512))
+                .executes(ctx -> {
+                    NeoForgeAltoClefMod.port().core().getModSettings().setBlockScanVerticalRange(IntegerArgumentType.getInteger(ctx, "blocks"));
+                    return scanStatus();
+                })))
+            .then(Commands.literal("interval").then(Commands.argument("ms", IntegerArgumentType.integer(500, 30000))
+                .executes(ctx -> {
+                    adris.altoclef.trackers.BlockTracker.SCAN_INTERVAL_MS = IntegerArgumentType.getInteger(ctx, "ms");
+                    return scanStatus();
+                })));
+    }
+
+    private static int scanPredictAuto(int radiusChunks, int featureIdx) {
+        say("Auto seed detection not yet implemented. Use: /cc scan predict <seed> [radius] [featureIdx]");
+        return 0;
+    }
+
+    private static int scanCalibrateAuto(int knownOreX, int knownOreZ) {
+        say("Auto seed detection not yet implemented. Use: /cc scan calibrate <seed> <x> <z>");
+        return 0;
+    }
+
+    private static int scanPredict(long worldSeed, int radiusChunks, int featureIdx) {
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        if (mc.player == null) { say("Not in a world."); return 0; }
+        int originCx = (int) mc.player.getX() >> 4;
+        int originCz = (int) mc.player.getZ() >> 4;
+        say("Predicting ore in " + (radiusChunks * 2 + 1) + "² chunk area (featureIdx=" + featureIdx + ")...");
+
+        java.util.List<net.minecraft.core.BlockPos> hits =
+            OrePredictor.scan(worldSeed, originCx, originCz, radiusChunks, featureIdx);
+
+        adris.altoclef.trackers.BlockTracker bt = NeoForgeAltoClefMod.port().core().getBlockTracker();
+        adris.altoclef.trackers.ChunkScanCache cache = bt.getChunkCache();
+        int prepopulated = 0;
+        int total = (radiusChunks * 2 + 1) * (radiusChunks * 2 + 1);
+        for (int dcx = -radiusChunks; dcx <= radiusChunks; dcx++) {
+            for (int dcz = -radiusChunks; dcz <= radiusChunks; dcz++) {
+                cache.mark(originCx + dcx, originCz + dcz, adris.altoclef.trackers.ChunkScanCache.State.CLEAN);
+                prepopulated++;
+            }
+        }
+        for (net.minecraft.core.BlockPos p : hits) {
+            cache.mark(p.getX() >> 4, p.getZ() >> 4, adris.altoclef.trackers.ChunkScanCache.State.HAS_ORE);
+        }
+        say("Found " + hits.size() + " ore chunks out of " + total + " ("
+            + String.format("%.2f", hits.size() * 100.0 / total) + "%)");
+        say("Pre-populated cache — spiral will skip the " + (total - hits.size()) + " empty chunks.");
+        if (!hits.isEmpty()) {
+            net.minecraft.core.BlockPos nearest = hits.get(0);
+            say("Nearest predicted ore: " + nearest.getX() + ", " + nearest.getY() + ", " + nearest.getZ()
+                + "  (chunk " + (nearest.getX() >> 4) + ", " + (nearest.getZ() >> 4) + ")");
+            say("Use: /cc nav goto " + nearest.getX() + " " + nearest.getY() + " " + nearest.getZ());
+        }
+        OrePredictor.defaultFeatureIndex = featureIdx;
+        return 1;
+    }
+
+    private static int scanCalibrate(long worldSeed, int knownOreX, int knownOreZ) {
+        say("Brute-forcing feature index for seed=" + worldSeed
+            + " known ore chunk (" + (knownOreX >> 4) + ", " + (knownOreZ >> 4) + ")...");
+        int idx = OrePredictor.calibrate(worldSeed, knownOreX, knownOreZ);
+        if (idx < 0) {
+            say("Could not find a matching feature index (0-256). "
+                + "Check that the ore coordinates are correct and the seed matches.");
+        } else {
+            OrePredictor.defaultFeatureIndex = idx;
+            say("Calibrated! Feature index = " + idx
+                + ". Now use /cc scan predict " + worldSeed + " to pre-populate the cache.");
+        }
+        return 1;
+    }
+
+    private static int scanSave() {
+        adris.altoclef.AltoClef mod = NeoForgeAltoClefMod.port().core();
+        if (mod == null) { say("Bot not loaded."); return 0; }
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        String dim = mc.level != null ? mc.level.dimension().location().getPath() : "unknown";
+        adris.altoclef.trackers.ChunkCachePersistence.save(
+            mod.getBlockTracker().getChunkCache(), dim, mod.getBlockTracker().getTrackedBlockIds());
+        adris.altoclef.trackers.ChunkScanCache cache = mod.getBlockTracker().getChunkCache();
+        say("Saved " + cache.countScanned() + " chunks ("
+            + cache.countClean() + " empty, " + cache.countHasOre() + " with ore) to disk.");
+        return 1;
+    }
+
+    private static int overlayToggle() {
+        return overlaySet(!ChunkOverlayRenderer.enabled);
+    }
+
+    private static int overlaySet(boolean on) {
+        ChunkOverlayRenderer.enabled = on;
+        if (on) {
+            adris.altoclef.trackers.BlockTracker bt = NeoForgeAltoClefMod.port().core().getBlockTracker();
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            int y = mc.player != null ? mc.level.getHeight(
+                net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                (int) mc.player.getX(), (int) mc.player.getZ()) : 316;
+            ChunkOverlayRenderer.setCache(bt.getChunkCache(), y);
+        }
+        say("Chunk overlay: " + (on ? "ON (green=ore, red=empty)" : "OFF"));
+        return 1;
+    }
+
+    private static int scanStatus() {
+        adris.altoclef.Settings s = NeoForgeAltoClefMod.port().core().getModSettings();
+        int h = s.getBlockScanHorizontalRange(), v = s.getBlockScanVerticalRange();
+        long total = (long)(h * 2 + 1) * (v + 1) * (h * 2 + 1);
+        say("Scan: h=" + h + " v=" + v + " interval=" + adris.altoclef.trackers.BlockTracker.SCAN_INTERVAL_MS
+            + "ms  box=" + total/1_000_000 + "M blocks/scan");
+
+        // Seed note: ClientLevel doesn't expose the world seed. Use /seed in-game or check server console.
+
+        adris.altoclef.trackers.ChunkScanCache cache =
+            NeoForgeAltoClefMod.port().core().getBlockTracker().getChunkCache();
+        int scanned = cache.countScanned(), clean = cache.countClean(), hasOre = cache.countHasOre();
+        if (scanned > 0) {
+            say("Chunks: " + scanned + " scanned | " + clean + " empty | " + hasOre + " has-ore");
+        } else {
+            say("Chunks: none scanned yet — start mining to populate cache");
+        }
+        say("Overlay: " + (ChunkOverlayRenderer.enabled ? "ON" : "OFF") + "  (/cc scan overlay)");
+        return 1;
     }
 
     private static void say(String message) {

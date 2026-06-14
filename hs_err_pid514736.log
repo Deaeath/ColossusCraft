@@ -1,0 +1,237 @@
+#
+# There is insufficient memory for the Java Runtime Environment to continue.
+# Native memory allocation (mmap) failed to map 524288000 bytes. Error detail: G1 virtual space
+# Possible reasons:
+#   The system is out of physical RAM or swap space
+#   This process is running with CompressedOops enabled, and the Java Heap may be blocking the growth of the native heap
+# Possible solutions:
+#   Reduce memory load on the system
+#   Increase physical memory or swap space
+#   Check if swap backing store is full
+#   Decrease Java heap size (-Xmx/-Xms)
+#   Decrease number of Java threads
+#   Decrease Java thread stack sizes (-Xss)
+#   Set larger code cache with -XX:ReservedCodeCacheSize=
+#   JVM is running with Zero Based Compressed Oops mode in which the Java heap is
+#     placed in the first 32GB address space. The Java Heap base address is the
+#     maximum limit for the native heap growth. Please use -XX:HeapBaseMinAddress
+#     to set the Java Heap base and to place the Java Heap above 32GB virtual address.
+# This output file may be truncated or incomplete.
+#
+#  Out of Memory Error (os_windows.cpp:3736), pid=514736, tid=514820
+#
+# JRE version:  (21.0.7+6) (build )
+# Java VM: OpenJDK 64-Bit Server VM (21.0.7+6-LTS, mixed mode, sharing, tiered, compressed oops, compressed class ptrs, g1 gc, windows-amd64)
+# No core dump will be written. Minidumps are not enabled by default on client versions of Windows
+#
+
+---------------  S U M M A R Y ------------
+
+Command Line: Transform C:\baritone-minefix\build\work\baritone\launch\mixins\MixinItemStack.class C:\baritone-minefix\build\work\MixinItemStack.patched.class
+
+Host: AMD Ryzen 9 7945HX with Radeon Graphics        , 32 cores, 31G,  Windows 11 , 64 bit Build 26100 (10.0.26100.8521)
+Time: Fri Jun 12 21:03:19 2026 Eastern Daylight Time elapsed time: 1.073300 seconds (0d 0h 0m 1s)
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x0000026a243d4d60):  JavaThread "Unknown thread" [_thread_in_vm, id=514820, stack(0x000000d575200000,0x000000d575300000) (1024K)]
+
+Stack: [0x000000d575200000,0x000000d575300000]
+Native frames: (J=compiled Java code, j=interpreted, Vv=VM code, C=native code)
+V  [jvm.dll+0x6d4bb9]
+V  [jvm.dll+0x8afa11]
+V  [jvm.dll+0x8b1f3e]
+V  [jvm.dll+0x8b2623]
+V  [jvm.dll+0x280816]
+V  [jvm.dll+0x6d1385]
+V  [jvm.dll+0x6c552a]
+V  [jvm.dll+0x35b978]
+V  [jvm.dll+0x3635f6]
+V  [jvm.dll+0x3b4b9e]
+V  [jvm.dll+0x3b4e48]
+V  [jvm.dll+0x32f9bc]
+V  [jvm.dll+0x33051b]
+V  [jvm.dll+0x878909]
+V  [jvm.dll+0x3c1b91]
+V  [jvm.dll+0x861973]
+V  [jvm.dll+0x456b7e]
+V  [jvm.dll+0x4587c1]
+C  [jli.dll+0x52a0]
+C  [ucrtbase.dll+0x2cd30]
+C  [KERNEL32.DLL+0x2e957]
+C  [ntdll.dll+0x87c1c]
+
+
+---------------  P R O C E S S  ---------------
+
+Threads class SMR info:
+_java_thread_list=0x00007ffa9e582108, length=0, elements={
+}
+
+Java Threads: ( => current thread )
+Total: 0
+
+Other Threads:
+  0x0000026a26ab6580 WorkerThread "GC Thread#0"                     [id=514824, stack(0x000000d575300000,0x000000d575400000) (1024K)]
+  0x0000026a26ac3fe0 ConcurrentGCThread "G1 Main Marker"            [id=514828, stack(0x000000d575400000,0x000000d575500000) (1024K)]
+  0x0000026a26ac4ae0 WorkerThread "G1 Conc#0"                       [id=514832, stack(0x000000d575500000,0x000000d575600000) (1024K)]
+
+[error occurred during error reporting (printing all threads), id 0xc0000005, EXCEPTION_ACCESS_VIOLATION (0xc0000005) at pc=0x00007ffa9dc82327]
+VM state: not at safepoint (not fully initialized)
+
+VM Mutex/Monitor currently owned by a thread:  ([mutex/lock_event])
+[0x00007ffa9e5f6578] Heap_lock - owner thread: 0x0000026a243d4d60
+
+Heap address: 0x000000060c800000, size: 7992 MB, Compressed Oops mode: Zero based, Oop shift amount: 3
+
+CDS archive(s) mapped at: [0x0000000000000000-0x0000000000000000-0x0000000000000000), size 0, SharedBaseAddress: 0x0000000800000000, ArchiveRelocationMode: 1.
+Narrow klass base: 0x0000000000000000, Narrow klass shift: 0, Narrow klass range: 0x0
+
+GC Precious Log:
+ CardTable entry size: 512
+ Card Set container configuration: InlinePtr #cards 4 size 8 Array Of Cards #cards 32 size 80 Howl #buckets 8 coarsen threshold 7372 Howl Bitmap #cards 1024 size 144 coarsen threshold 921 Card regions per heap region 1 cards per card region 8192
+
+Heap:
+ garbage-first heap   total 0K, used 0K [0x000000060c800000, 0x0000000800000000)
+  region size 4096K, 0 young (0K), 0 survivors (0K)
+
+[error occurred during error reporting (printing heap information), id 0xc0000005, EXCEPTION_ACCESS_VIOLATION (0xc0000005) at pc=0x00007ffa9e06ea59]
+GC Heap History (0 events):
+No events
+
+Dll operation events (1 events):
+Event: 0.017 Loaded shared library C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\java.dll
+
+Deoptimization events (0 events):
+No events
+
+Classes loaded (0 events):
+No events
+
+Classes unloaded (0 events):
+No events
+
+Classes redefined (0 events):
+No events
+
+Internal exceptions (0 events):
+No events
+
+ZGC Phase Switch (0 events):
+No events
+
+VM Operations (0 events):
+No events
+
+Memory protections (0 events):
+No events
+
+Nmethod flushes (0 events):
+No events
+
+Events (0 events):
+No events
+
+
+Dynamic libraries:
+0x00007ff718e40000 - 0x00007ff718e4e000 	C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\java.exe
+0x00007ffb981c0000 - 0x00007ffb98426000 	C:\WINDOWS\SYSTEM32\ntdll.dll
+0x00007ffb96b40000 - 0x00007ffb96c09000 	C:\WINDOWS\System32\KERNEL32.DLL
+0x00007ffb95770000 - 0x00007ffb95b6a000 	C:\WINDOWS\System32\KERNELBASE.dll
+0x00007ffb95ca0000 - 0x00007ffb95dec000 	C:\WINDOWS\System32\ucrtbase.dll
+0x00007ffb6b380000 - 0x00007ffb6b398000 	C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\jli.dll
+0x00007ffb61640000 - 0x00007ffb6165d000 	C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\VCRUNTIME140.dll
+0x00007ffb970c0000 - 0x00007ffb97287000 	C:\WINDOWS\System32\USER32.dll
+0x00007ffb95500000 - 0x00007ffb95527000 	C:\WINDOWS\System32\win32u.dll
+0x00007ffb77f60000 - 0x00007ffb781f2000 	C:\WINDOWS\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.8521_none_3e08b75ce33403b3\COMCTL32.dll
+0x00007ffb96450000 - 0x00007ffb9647b000 	C:\WINDOWS\System32\GDI32.dll
+0x00007ffb98060000 - 0x00007ffb98109000 	C:\WINDOWS\System32\msvcrt.dll
+0x00007ffb95b70000 - 0x00007ffb95c9b000 	C:\WINDOWS\System32\gdi32full.dll
+0x00007ffb95450000 - 0x00007ffb954f3000 	C:\WINDOWS\System32\msvcp_win.dll
+0x00007ffb965c0000 - 0x00007ffb965f2000 	C:\WINDOWS\System32\IMM32.DLL
+0x00007ffb78bd0000 - 0x00007ffb78bdc000 	C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\vcruntime140_1.dll
+0x00007ffb02da0000 - 0x00007ffb02e2d000 	C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\msvcp140.dll
+0x00007ffa9d940000 - 0x00007ffa9e6d8000 	C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\server\jvm.dll
+0x00007ffb96df0000 - 0x00007ffb96ea6000 	C:\WINDOWS\System32\ADVAPI32.dll
+0x00007ffb96990000 - 0x00007ffb96a3a000 	C:\WINDOWS\System32\sechost.dll
+0x00007ffb960d0000 - 0x00007ffb961e8000 	C:\WINDOWS\System32\RPCRT4.dll
+0x00007ffb97fc0000 - 0x00007ffb98040000 	C:\WINDOWS\System32\WS2_32.dll
+0x00007ffb952b0000 - 0x00007ffb9530e000 	C:\WINDOWS\SYSTEM32\POWRPROF.dll
+0x00007ffb86af0000 - 0x00007ffb86b26000 	C:\WINDOWS\SYSTEM32\WINMM.dll
+0x00007ffb8e320000 - 0x00007ffb8e32b000 	C:\WINDOWS\SYSTEM32\VERSION.dll
+0x00007ffb95290000 - 0x00007ffb952a4000 	C:\WINDOWS\SYSTEM32\UMPDC.dll
+0x00007ffb941a0000 - 0x00007ffb941bb000 	C:\WINDOWS\SYSTEM32\kernel.appcore.dll
+0x00007ffb78ac0000 - 0x00007ffb78aca000 	C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\jimage.dll
+0x00007ffb928a0000 - 0x00007ffb92ae2000 	C:\WINDOWS\SYSTEM32\DBGHELP.DLL
+0x00007ffb96600000 - 0x00007ffb96983000 	C:\WINDOWS\System32\combase.dll
+0x00007ffb97ee0000 - 0x00007ffb97fb9000 	C:\WINDOWS\System32\OLEAUT32.dll
+0x00007ffb80a60000 - 0x00007ffb80a9b000 	C:\WINDOWS\SYSTEM32\dbgcore.DLL
+0x00007ffb95e80000 - 0x00007ffb95f28000 	C:\WINDOWS\System32\bcryptPrimitives.dll
+0x00007ffb58f00000 - 0x00007ffb58f20000 	C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\java.dll
+
+dbghelp: loaded successfully - version: 4.0.5 - missing functions: none
+symbol engine: initialized successfully - sym options: 0x614 - pdb path: .;C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin;C:\WINDOWS\SYSTEM32;C:\WINDOWS\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.8521_none_3e08b75ce33403b3;C:\Users\Power User\AppData\Roaming\PrismLauncher\java\java-runtime-delta\bin\server
+
+VM Arguments:
+java_command: Transform C:\baritone-minefix\build\work\baritone\launch\mixins\MixinItemStack.class C:\baritone-minefix\build\work\MixinItemStack.patched.class
+java_class_path (initial): C:\baritone-minefix\build\classes;C:\Users\Power User\AppData\Roaming\PrismLauncher\libraries\org\ow2\asm\asm\9.9\asm-9.9.jar;C:\Users\Power User\AppData\Roaming\PrismLauncher\libraries\org\ow2\asm\asm-tree\9.9\asm-tree-9.9.jar
+Launcher Type: SUN_STANDARD
+
+[Global flags]
+     intx CICompilerCount                          = 15                                        {product} {ergonomic}
+     uint ConcGCThreads                            = 6                                         {product} {ergonomic}
+     uint G1ConcRefinementThreads                  = 23                                        {product} {ergonomic}
+   size_t G1HeapRegionSize                         = 4194304                                   {product} {ergonomic}
+    uintx GCDrainStackTargetSize                   = 64                                        {product} {ergonomic}
+   size_t InitialHeapSize                          = 524288000                                 {product} {ergonomic}
+   size_t MarkStackSize                            = 4194304                                   {product} {ergonomic}
+   size_t MaxHeapSize                              = 8380219392                                {product} {ergonomic}
+   size_t MinHeapDeltaBytes                        = 4194304                                   {product} {ergonomic}
+   size_t MinHeapSize                              = 8388608                                   {product} {ergonomic}
+    uintx NonNMethodCodeHeapSize                   = 8192380                                {pd product} {ergonomic}
+    uintx NonProfiledCodeHeapSize                  = 121732930                              {pd product} {ergonomic}
+    uintx ProfiledCodeHeapSize                     = 121732930                              {pd product} {ergonomic}
+    uintx ReservedCodeCacheSize                    = 251658240                              {pd product} {ergonomic}
+     bool SegmentedCodeCache                       = true                                      {product} {ergonomic}
+   size_t SoftMaxHeapSize                          = 8380219392                             {manageable} {ergonomic}
+     bool UseCompressedOops                        = true                           {product lp64_product} {ergonomic}
+     bool UseG1GC                                  = true                                      {product} {ergonomic}
+     bool UseLargePagesIndividualAllocation        = false                                  {pd product} {ergonomic}
+
+Logging:
+Log output configuration:
+ #0: stdout all=warning uptime,level,tags foldmultilines=false
+ #1: stderr all=off uptime,level,tags foldmultilines=false
+
+Environment Variables:
+PATH=C:\Users\Power User\AppData\Local\Programs\Microsoft VS Code;C:\Program Files\Tesseract-OCR;C:\Program Files\Common Files\Oracle\Java\javapath;C:\Program Files\Java\jdk-18.0.2.1;C:\Program Files\Java\jdk-18.0.2.1\bin;C:\Program Files\OpenSSL-Win64\bin;C:\tools\PSTools\PsExec;C:\msys64\ucrt64\bin;C:\tools\neovim\nvim-win64\bin;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\Git\cmd;C:\Program Files\Go\bin;C:\Program Files\dotnet\;C:\Program Files\GitHub CLI\;C:\Program Files\PuTTY\;C:\ProgramData\chocolatey\bin;C:\Program Files (x86)\dotnet\;c:\Users\Power User\AppData\Local\Programs\cursor\resources\app\bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\NVIDIA Corporation\NVIDIA App\NvDLISR;C:\ProgramData\chocolatey\lib\maven\apache-maven-3.9.10\bin;C:\Pro;C:\Users\Power User\AppData\Local\Programs\Python\Python312\Scripts\;C:\Users\Power User\AppData\Local\Programs\Python\Python312\;C:\Users\Power User\AppData\Local\Programs\Python\Python39\Scripts\;C:\Users\Power User\AppData\Local\Programs\Python\Python39\;C:\Users\Power User\AppData\Local\Microsoft\WindowsApps;C:\Program Files\JetBrains\PyCharm Community Edition 2023.1\bin;;C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2023.1.4\bin;;C:\Users\Power User\AppData\Local\GitHubDesktop\bin;C:\ProgramData\Power User\GitHubDesktop\bin;C:\Users\Power User\go\bin;C:\Users\Power User\.pyenv\pyenv-win\bin;C:\Users\Power User\.pyenv\pyenv-win\shims;C:\Users\Power User\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin;C:\Users\Power User\.dotnet\tools;C:\tools\neovim\nvim-win64\bin;C:\Users\Power User\AppData\Local\Programs\Microsoft VS Code\bin;C:\Users\Power User\.bun\bin;C:\Users\Power User\AppData\Local\nvm;C:\nvm4w\nodejs;C:\Users\Power User\AppData\Roaming\npm;C:\Users\Power User\AppData\Local\Programs\Windsurf\bin;C:\Users\Power User\AppData\Local\PowerToys\DSCModules\;C:\Users\Power User\AppData\Local\Programs\cursor\resources\app\bin;C:\Gradle\gradle-8.8\bin
+USERNAME=Power User
+OS=Windows_NT
+PROCESSOR_IDENTIFIER=AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD
+TMP=C:\Users\POWERU~1\AppData\Local\Temp
+TEMP=C:\Users\POWERU~1\AppData\Local\Temp
+
+
+
+
+Periodic native trim disabled
+
+---------------  S Y S T E M  ---------------
+
+OS:
+ Windows 11 , 64 bit Build 26100 (10.0.26100.8521)
+OS uptime: 1 days 0:12 hours
+Hyper-V role detected
+
+CPU: total 32 (initial active 32) (32 cores per cpu, 2 threads per core) family 25 model 97 stepping 2 microcode 0xa601206, cx8, cmov, fxsr, ht, mmx, 3dnowpref, sse, sse2, sse3, ssse3, sse4a, sse4.1, sse4.2, popcnt, lzcnt, tsc, tscinvbit, avx, avx2, aes, erms, clmul, bmi1, bmi2, adx, avx512f, avx512dq, avx512cd, avx512bw, avx512vl, sha, fma, vzeroupper, avx512_vpopcntdq, avx512_vpclmulqdq, avx512_vaes, avx512_vnni, clflush, clflushopt, avx512_vbmi2, avx512_vbmi, hv, rdtscp, rdpid, fsrm, gfni, avx512_bitalg, f16c, cet_ss, avx512_ifma
+Processor Information for the first 32 processors :
+  Max Mhz: 2501, Current Mhz: 2501, Mhz Limit: 2501
+
+Memory: 4k page, system-wide physical 31962M (1263M free)
+TotalPageFile size 63962M (AvailPageFile size 179M)
+current process WorkingSet (physical memory assigned to process): 13M, peak: 13M
+current process commit charge ("private bytes"): 92M, peak: 592M
+
+vm_info: OpenJDK 64-Bit Server VM (21.0.7+6-LTS) for windows-amd64 JRE (21.0.7+6-LTS), built on 2025-04-09T22:17:25Z by "MicrosoftCorporation" with unknown MS VC++:1939
+
+END.

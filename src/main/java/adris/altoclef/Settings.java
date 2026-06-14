@@ -13,8 +13,8 @@ public class Settings {
     private boolean hideAllWarningLogs;
     private double entityReachRange = 4.5;
     private double containerItemMoveDelay = 0.12;
-    private int blockScanHorizontalRange = 128;
-    private int blockScanVerticalRange = 256;
+    private int blockScanHorizontalRange = 64;
+    private int blockScanVerticalRange = 320;
     private boolean mobDefense = true;
     private boolean autoEat = true;
     private boolean dodgeProjectiles = true;
@@ -49,13 +49,11 @@ public class Settings {
         return containerItemMoveDelay;
     }
 
-    public int getBlockScanHorizontalRange() {
-        return blockScanHorizontalRange;
-    }
+    public int getBlockScanHorizontalRange() { return blockScanHorizontalRange; }
+    public void setBlockScanHorizontalRange(int v) { blockScanHorizontalRange = v; }
 
-    public int getBlockScanVerticalRange() {
-        return blockScanVerticalRange;
-    }
+    public int getBlockScanVerticalRange() { return blockScanVerticalRange; }
+    public void setBlockScanVerticalRange(int v) { blockScanVerticalRange = v; }
 
     public boolean isMobDefense() {
         return mobDefense;

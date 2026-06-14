@@ -85,9 +85,12 @@ public final class AltoClefQuestBot {
         EmergencyHome.init();
         InventoryView.init(modBus);
         AltoClefUtilityCommands.init();
+        ChunkOverlayRenderer.init();
         BowAimbot.init();
         NeoForge.EVENT_BUS.addListener(AltoClefQuestBot::registerCommands);
         NeoForge.EVENT_BUS.addListener(AltoClefQuestBot::clientTick);
+        NeoForge.EVENT_BUS.addListener(AltoClefQuestBot::onLogin);
+        NeoForge.EVENT_BUS.addListener(AltoClefQuestBot::onLogout);
     }
 
     private static void registerCommands(RegisterClientCommandsEvent event) {
@@ -154,10 +157,6 @@ public final class AltoClefQuestBot {
                             return get(p[0], count);
                         })))
                 .then(Commands.literal("goto")
-                        .then(Commands.argument("x", IntegerArgumentType.integer())
-                                .then(Commands.argument("y", IntegerArgumentType.integer())
-                                        .then(Commands.argument("z", IntegerArgumentType.integer())
-                                                .executes(ctx -> gotoPos(IntegerArgumentType.getInteger(ctx, "x"), IntegerArgumentType.getInteger(ctx, "y"), IntegerArgumentType.getInteger(ctx, "z"))))))
                         .then(Commands.literal("entity")
                                 .then(Commands.argument("type", StringArgumentType.greedyString())
                                         .suggests(AltoClefCompletions::suggestEntities)
@@ -166,9 +165,10 @@ public final class AltoClefQuestBot {
                                 .then(Commands.argument("item", StringArgumentType.greedyString())
                                         .suggests(AltoClefCompletions::suggestItems)
                                         .executes(ctx -> gotoItem(StringArgumentType.getString(ctx, "item").trim()))))
-                        .then(Commands.argument("player", StringArgumentType.word())
+                        // Greedy string handles: "x y z", "~x ~y ~z", "~ ~ ~", or player name
+                        .then(Commands.argument("coords_or_player", StringArgumentType.greedyString())
                                 .suggests(AltoClefCompletions::suggestPlayers)
-                                .executes(ctx -> gotoPlayer(StringArgumentType.getString(ctx, "player")))));
+                                .executes(ctx -> gotoParse(StringArgumentType.getString(ctx, "coords_or_player").trim()))));
         // Sub-modules
         root.then(EmergencyHome.command());
         root.then(InventoryView.command());
@@ -620,6 +620,33 @@ public final class AltoClefQuestBot {
         return 1;
     }
 
+    private static int gotoParse(String input) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) { say("ColossusCraft goto: no player"); return 0; }
+        String[] parts = input.split("\\s+");
+        if (parts.length == 3) {
+            try {
+                double px = mc.player.getX(), py = mc.player.getY(), pz = mc.player.getZ();
+                int x = parseCoord(parts[0], px);
+                int y = parseCoord(parts[1], py);
+                int z = parseCoord(parts[2], pz);
+                return gotoPos(x, y, z);
+            } catch (NumberFormatException ignored) {}
+        }
+        // Single token — treat as player name
+        if (parts.length == 1) return gotoPlayer(parts[0]);
+        say("ColossusCraft goto: expected 'x y z', '~x ~y ~z', or player name");
+        return 0;
+    }
+
+    private static int parseCoord(String token, double playerCoord) {
+        if (token.startsWith("~")) {
+            double offset = token.length() > 1 ? Double.parseDouble(token.substring(1)) : 0;
+            return (int) Math.floor(playerCoord + offset);
+        }
+        return Integer.parseInt(token);
+    }
+
     private static int gotoPos(int x, int y, int z) {
         net.minecraft.core.BlockPos target = new net.minecraft.core.BlockPos(x, y, z);
         upstreamPort.core().runUserTask(
@@ -848,6 +875,38 @@ public final class AltoClefQuestBot {
             Minecraft mc = Minecraft.getInstance();
             return mc.player != null && mc.player.getInventory().contains(new ItemStack(item));
         }
+    }
+
+    private static void onLogin(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingIn event) {
+        // Defer by one tick so the dimension info is available
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+            new java.util.function.Consumer<ClientTickEvent.Post>() {
+                boolean fired = false;
+                @Override public void accept(ClientTickEvent.Post e) {
+                    if (fired) return;
+                    fired = true;
+                    adris.altoclef.AltoClef mod = adris.altoclef.platform.NeoForgeAltoClefMod.port().core();
+                    if (mod == null) return;
+                    adris.altoclef.trackers.BlockTracker bt = mod.getBlockTracker();
+                    String dim = net.minecraft.client.Minecraft.getInstance().level != null
+                        ? net.minecraft.client.Minecraft.getInstance().level.dimension().location().getPath()
+                        : "unknown";
+                    adris.altoclef.trackers.ChunkCachePersistence.load(
+                        bt.getChunkCache(), dim, bt.getTrackedBlockIds());
+                    System.out.println("[ChunkCache] Loaded for dimension: " + dim);
+                }
+            });
+    }
+
+    private static void onLogout(net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+        adris.altoclef.AltoClef mod = adris.altoclef.platform.NeoForgeAltoClefMod.port().core();
+        if (mod == null) return;
+        adris.altoclef.trackers.BlockTracker bt = mod.getBlockTracker();
+        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+        String dim = mc.level != null ? mc.level.dimension().location().getPath() : "unknown";
+        adris.altoclef.trackers.ChunkCachePersistence.save(
+            bt.getChunkCache(), dim, bt.getTrackedBlockIds());
+        System.out.println("[ChunkCache] Saved for dimension: " + dim);
     }
 
     private static void clientTick(ClientTickEvent.Post event) {

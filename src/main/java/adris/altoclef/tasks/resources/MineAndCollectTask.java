@@ -55,12 +55,6 @@ public class MineAndCollectTask extends ResourceTask {
         _blocksToMine = blocksToMine;
         _preferredBiome = preferredBiome;
         _subtask = new MineOrCollectTask(_blocksToMine, _itemTargets, preferredBiome);
-        if (preferredBiome != null) {
-            String path = preferredBiome.location().getPath();
-            if (NETHER_BIOMES.contains(path)) forceDimension(Dimension.NETHER);
-            else if (END_BIOMES.contains(path)) forceDimension(Dimension.END);
-            else forceDimension(Dimension.OVERWORLD);
-        }
     }
 
     public MineAndCollectTask(ItemTarget[] itemTargets, Block[] blocksToMine, MiningRequirement requirement) {
@@ -127,14 +121,6 @@ public class MineAndCollectTask extends ResourceTask {
             return getToCorrectDimensionTask(mod);
         }
 
-        // Wrong biome check — navigate to preferred biome when wandering with no ore found.
-        if (_preferredBiome != null && _subtask.wasWandering()
-                && !mod.getBlockTracker().anyFound(_blocksToMine)
-                && mod.getWorld() != null && mod.getPlayer() != null
-                && !mod.getWorld().getBiome(mod.getPlayer().blockPosition()).is(_preferredBiome)) {
-            return new GoToBiomeTask(_preferredBiome);
-        }
-
         return _subtask;
     }
 
@@ -186,6 +172,7 @@ public class MineAndCollectTask extends ResourceTask {
         private final Task _pickupTask;
         private BlockPos _miningPos;
         private SpiralSearchTask _spiralSearch;
+        private int _surfaceY = Integer.MIN_VALUE; // locked at task-start so spiral stays on surface
 
         public MineOrCollectTask(Block[] blocks, ItemTarget[] targets, ResourceKey<Biome> preferredBiome) {
             _blocks = blocks;
@@ -197,11 +184,14 @@ public class MineAndCollectTask extends ResourceTask {
         @Override
         protected Task getWanderTask(AltoClef mod) {
             if (_spiralSearch == null) {
-                BlockPos origin = new BlockPos(
-                    (int) mod.getPlayer().getX(),
-                    (int) mod.getPlayer().getY(),
-                    (int) mod.getPlayer().getZ());
-                _spiralSearch = new SpiralSearchTask(origin, _preferredBiome);
+                int x = (int) mod.getPlayer().getX();
+                int z = (int) mod.getPlayer().getZ();
+                // Use the locked surface Y so the bot walks on top and the downward
+                // scan picks up underground ores (e.g. allthemodium at Y=129 in mining dim).
+                int y = _surfaceY != Integer.MIN_VALUE ? _surfaceY : (int) mod.getPlayer().getY();
+                _spiralSearch = new SpiralSearchTask(
+                    new BlockPos(x, y, z), y, _preferredBiome,
+                    mod.getBlockTracker().getChunkCache());
             }
             return _spiralSearch;
         }
@@ -255,6 +245,11 @@ public class MineAndCollectTask extends ResourceTask {
             if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
                 _progressChecker.reset();
             }
+            // DestroyBlockTask mines manually when within 5 blocks — player stands still intentionally.
+            if (_miningPos != null && mod.getPlayer() != null &&
+                    mod.getPlayer().blockPosition().distSqr(_miningPos) <= 25) {
+                _progressChecker.reset();
+            }
             if (_miningPos != null && !_progressChecker.check(mod)) {
                 mod.getClientBaritone().getPathingBehavior().forceCancel();
                 Debug.logMessage("Failed to mine block. Suggesting it may be unreachable.");
@@ -273,7 +268,6 @@ public class MineAndCollectTask extends ResourceTask {
                     _progressChecker.reset();
                 }
                 _miningPos = newPos;
-                _spiralSearch = null; // reset so next search starts from the new location
                 return new DestroyBlockTask(_miningPos);
             }
             if (obj instanceof ItemEntity) {
@@ -304,7 +298,27 @@ public class MineAndCollectTask extends ResourceTask {
         protected void onStart(AltoClef mod) {
             _progressChecker.reset();
             _miningPos = null;
-            _spiralSearch = null; // reset spiral to current position each time mining starts
+            _spiralSearch = null;
+            // Lock the surface Y once at task start so the spiral stays on the surface
+            // even after the bot digs underground to mine a block and resurfaces.
+            if (mod.getPlayer() != null) {
+                // In the allthemodium mining dimension the "surface" from the heightmap
+                // is ~Y=253 (top of the stone layer), but allthemodium_slate_ore only
+                // generates at Y=129 in the deepslate layer. Walk at surface level so
+                // BlockTracker's downward scan covers that layer.
+                net.minecraft.resources.ResourceLocation miningBiome =
+                    net.minecraft.resources.ResourceLocation.tryParse("allthemodium:mining");
+                boolean isMiningDim = _preferredBiome != null
+                    && _preferredBiome.location().equals(miningBiome);
+                if (isMiningDim) {
+                    _surfaceY = 135; // just above deepslate layer; scan covers Y=129
+                } else {
+                    _surfaceY = mod.getWorld().getHeight(
+                        net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                        (int) mod.getPlayer().getX(),
+                        (int) mod.getPlayer().getZ());
+                }
+            }
         }
 
         @Override
