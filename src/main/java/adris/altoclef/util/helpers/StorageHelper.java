@@ -34,7 +34,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.common.Tags;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -207,18 +206,12 @@ public final class StorageHelper {
     }
 
     public static Optional<Slot> getBestToolSlot(AltoClef mod, BlockState state) {
-        Optional<Slot> nonNetherite = getBestToolSlot(mod, state, !state.is(Tags.Blocks.NEEDS_NETHERITE_TOOL));
-        return nonNetherite.isPresent() ? nonNetherite : getBestToolSlot(mod, state, false);
-    }
-
-    private static Optional<Slot> getBestToolSlot(AltoClef mod, BlockState state, boolean skipNetherite) {
         Slot best = null;
         float bestSpeed = 1.0f;
         for (Slot slot : Slot.getCurrentScreenSlots()) {
             if (!slot.isSlotInPlayerInventory()) continue;
             ItemStack stack = getItemStackInSlot(slot);
             if (stack.getItem() instanceof DiggerItem) {
-                if (skipNetherite && isVanillaNetheriteTool(stack)) continue;
                 float speed = stack.getDestroySpeed(state);
                 if (stack.isCorrectToolForDrops(state) && speed > bestSpeed) {
                     bestSpeed = speed;
@@ -227,15 +220,6 @@ public final class StorageHelper {
             }
         }
         return Optional.ofNullable(best);
-    }
-
-    public static boolean isVanillaNetheriteTool(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return false;
-        Item item = stack.getItem();
-        return item == Items.NETHERITE_PICKAXE
-            || item == Items.NETHERITE_AXE
-            || item == Items.NETHERITE_SHOVEL
-            || item == Items.NETHERITE_HOE;
     }
 
     public static Optional<Slot> getFilledInventorySlotInaccessibleToContainer(AltoClef mod, ItemTarget target) {

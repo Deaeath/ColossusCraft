@@ -1,13 +1,21 @@
 package adris.altoclef.tasks.construction;
 
 import adris.altoclef.AltoClef;
+import adris.altoclef.tasks.movement.GetToBlockTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.helpers.LookHelper;
+import adris.altoclef.util.helpers.StorageHelper;
+import adris.altoclef.util.slots.PlayerSlot;
+import adris.altoclef.util.slots.Slot;
 import baritone.api.utils.input.Input;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.item.DiggerItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.Optional;
 
 public class DestroyBlockTask extends Task {
     private final BlockPos pos;
@@ -26,6 +34,10 @@ public class DestroyBlockTask extends Task {
     protected Task onTick(AltoClef mod) {
         BlockState state = mod.getWorld() == null ? null : mod.getWorld().getBlockState(pos);
         if (state != null && state.isAir()) return null;
+        if (mod.getPlayer() != null && mod.getPlayer().blockPosition().distSqr(pos) > 25) {
+            return new GetToBlockTask(pos);
+        }
+        if (state != null) equipBestTool(mod, state);
         LookHelper.lookAt(mod, pos);
         Direction face = getHitFace(mod);
         if (mod.getController() != null) {
@@ -38,6 +50,33 @@ public class DestroyBlockTask extends Task {
         mod.getInputControls().hold(Input.CLICK_LEFT);
         setDebugState("Destroy " + pos.toShortString());
         return null;
+    }
+
+    private void equipBestTool(AltoClef mod, BlockState state) {
+        Optional<Slot> best = StorageHelper.getBestToolSlot(mod, state);
+        Slot current = PlayerSlot.getEquipSlot();
+        ItemStack currentStack = StorageHelper.getItemStackInSlot(current);
+        if (best.isEmpty() && !(currentStack.getItem() instanceof DiggerItem)) {
+            best = firstDiggerSlot();
+        }
+        if (best.isEmpty()) return;
+        ItemStack bestStack = StorageHelper.getItemStackInSlot(best.get());
+        boolean faster = bestStack.getDestroySpeed(state) > currentStack.getDestroySpeed(state);
+        boolean currentNotTool = !(currentStack.getItem() instanceof DiggerItem);
+        if (!best.get().equals(current) && (faster || currentNotTool)) {
+            mod.getSlotHandler().forceEquipSlot(best.get());
+            startedDestroying = false;
+        }
+    }
+
+    private Optional<Slot> firstDiggerSlot() {
+        for (Slot slot : Slot.getCurrentScreenSlots()) {
+            if (!slot.isSlotInPlayerInventory()) continue;
+            if (StorageHelper.getItemStackInSlot(slot).getItem() instanceof DiggerItem) {
+                return Optional.of(slot);
+            }
+        }
+        return Optional.empty();
     }
 
     private Direction getHitFace(AltoClef mod) {

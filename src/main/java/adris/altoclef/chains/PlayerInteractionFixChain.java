@@ -28,7 +28,7 @@ public class PlayerInteractionFixChain extends TaskChain {
     private final TimerGame _stackHeldTimeout = new TimerGame(1);
     private final TimerGame _generalDuctTapeSwapTimeout = new TimerGame(30);
     private final TimerGame _shiftDepressTimeout = new TimerGame(10);
-    private final TimerGame _betterToolTimer = new TimerGame(0);
+    private final TimerGame _betterToolTimer = new TimerGame(1);
     private final TimerGame _mouseMovingButScreenOpenTimeout = new TimerGame(1);
     private ItemStack _lastHandStack = null;
 

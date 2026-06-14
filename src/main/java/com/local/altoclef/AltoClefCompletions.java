@@ -87,6 +87,15 @@ public final class AltoClefCompletions {
     /** Fuzzy-rank all registered blocks and return the best match, or null. */
     public static net.minecraft.world.level.block.Block resolveBlock(String input) {
         String query = normalizeKey(normalizeItemName(input));
+        // Fast path: if no namespace given, try minecraft:<name> before fuzzy search so that
+        // vanilla names like "oak_log" are not beaten by modded blocks that happen to share the path.
+        if (!input.contains(":")) {
+            ResourceLocation minecraftLoc = ResourceLocation.tryParse("minecraft:" + query);
+            if (minecraftLoc != null) {
+                net.minecraft.world.level.block.Block direct = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(minecraftLoc);
+                if (direct != null && direct != net.minecraft.world.level.block.Blocks.AIR) return direct;
+            }
+        }
         net.minecraft.world.level.block.Block best = null;
         int bestScore = Integer.MAX_VALUE;
         for (ResourceLocation key : net.minecraft.core.registries.BuiltInRegistries.BLOCK.keySet()) {
