@@ -6,7 +6,7 @@ All features are accessed via `/colossuscraft` (alias `/cc`).
 
 ## Install
 
-Drop `colossuscraft-neoforge-1.21.1-1.0.1.jar` into your mods folder. That's it.
+Drop `colossuscraft-neoforge-1.21.1-1.0.2.jar` into your mods folder. That's it.
 
 ## Commands
 
@@ -39,6 +39,23 @@ Drop `colossuscraft-neoforge-1.21.1-1.0.1.jar` into your mods folder. That's it.
 /cc coverwithsand
 /cc exec <internal-command>
 /cc nav <pathfinder-command>
+/cc mine <block> [count]
+/cc mine <count> <block1> <block2> ...
+/cc mine <block> --biome <biome>
+/cc sneak on|off|status
+```
+
+### PveGuard
+
+```
+/ccguard on|off|toggle
+/ccguard combat on|off
+/ccguard eat on|off
+/ccguard warden on|off
+/ccguard warden dodge on|off|toggle
+/ccguard warden flee on|off|toggle
+/ccguard range <blocks>
+/ccguard status
 ```
 
 ### ATM10 quests (off by default)
@@ -102,4 +119,4 @@ Requires PrismLauncher with ATM10 installed and NeoForge moddev artifacts genera
 
 ## Revert
 
-Delete `colossuscraft-neoforge-1.21.1-1.0.1.jar` and re-enable your original `baritone-standalone-neoforge-1.11.2.jar`.
+Delete `colossuscraft-neoforge-1.21.1-1.0.2.jar` and re-enable your original `baritone-standalone-neoforge-1.11.2.jar`.
