@@ -57,6 +57,7 @@ public class FoodChain extends SingleTaskChain {
 
     @Override
     protected void onTaskFinish(AltoClef mod) {
+        mainTask = null;
     }
 
     private void startEat(AltoClef mod, Item food) {
@@ -124,7 +125,7 @@ public class FoodChain extends SingleTaskChain {
         }
 
         // We're in danger, don't eat now!!
-        if (!mod.getMLGBucketChain().doneMLG() || mod.getMLGBucketChain().isFallingOhNo(mod) ||
+        if (!mod.getMLGBucketChain().doneMLG(mod) || mod.getMLGBucketChain().isFallingOhNo(mod) ||
                 mod.getPlayer().isBlocking() || shouldStop) {
             stopEat(mod);
             return Float.NEGATIVE_INFINITY;
@@ -175,6 +176,16 @@ public class FoodChain extends SingleTaskChain {
     public boolean isActive() {
         // We're always checking for food.
         return true;
+    }
+
+    @Override
+    public boolean isPassive() {
+        return true;
+    }
+
+    @Override
+    public boolean pausesBaritone() {
+        return mainTask != null;
     }
 
     @Override

@@ -26,6 +26,10 @@ public abstract class SingleTaskChain extends TaskChain {
         }
         if (mainTask != null) {
             if (mainTask.isFinished(mod) || mainTask.stopped()) {
+                Debug.logInternal("[" + getName() + "] task finishing: " + mainTask + " finished=" + mainTask.isFinished(mod) + " stopped=" + mainTask.stopped());
+                if (!mainTask.stopped()) {
+                    mainTask.stop(mod);
+                }
                 onTaskFinish(mod);
             } else {
                 mainTask.tick(mod, this);
@@ -43,6 +47,9 @@ public abstract class SingleTaskChain extends TaskChain {
 
     public void setTask(Task task) {
         if (mainTask == null || !mainTask.equals(task)) {
+            Debug.logInternal("[" + getName() + "] setTask: "
+                    + (mainTask == null ? "none" : mainTask)
+                    + " -> " + (task == null ? "none" : task));
             if (mainTask != null) {
                 mainTask.stop(mod, task);
             }
@@ -71,5 +78,10 @@ public abstract class SingleTaskChain extends TaskChain {
 
     public Task getCurrentTask() {
         return mainTask;
+    }
+
+    @Override
+    public String describeCurrentTask() {
+        return mainTask == null ? "" : mainTask.toString();
     }
 }

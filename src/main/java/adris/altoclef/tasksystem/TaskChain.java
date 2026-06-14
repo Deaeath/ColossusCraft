@@ -35,6 +35,18 @@ public abstract class TaskChain {
 
     public abstract String getName();
 
+    public boolean isPassive() {
+        return false;
+    }
+
+    public boolean pausesBaritone() {
+        return false;
+    }
+
+    public String describeCurrentTask() {
+        return "";
+    }
+
     public List<Task> getTasks() {
         return _cachedTaskChain;
     }

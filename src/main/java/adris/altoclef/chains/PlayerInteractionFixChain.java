@@ -201,4 +201,9 @@ public class PlayerInteractionFixChain extends TaskChain {
     public String getName() {
         return "Hand Stack Fix Chain";
     }
+
+    @Override
+    public boolean isPassive() {
+        return true;
+    }
 }

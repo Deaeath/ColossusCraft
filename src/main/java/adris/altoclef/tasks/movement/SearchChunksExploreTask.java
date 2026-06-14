@@ -2,24 +2,28 @@ package adris.altoclef.tasks.movement;
 
 import adris.altoclef.AltoClef;
 import adris.altoclef.tasksystem.Task;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 
 public abstract class SearchChunksExploreTask extends Task {
-    private int commandCooldown;
+    private SpiralSearchTask _spiral;
 
     @Override
     protected void onStart(AltoClef mod) {
-        commandCooldown = 0;
+        _spiral = null;
     }
 
     @Override
     protected Task onTick(AltoClef mod) {
-        if (commandCooldown-- <= 0) {
-            commandCooldown = 100;
-            mod.runBaritone("explore");
+        if (_spiral == null) {
+            BlockPos origin = new BlockPos(
+                (int) mod.getPlayer().getX(),
+                (int) mod.getPlayer().getY(),
+                (int) mod.getPlayer().getZ());
+            _spiral = new SpiralSearchTask(origin);
         }
-        setDebugState("Explore chunks");
-        return null;
+        setDebugState("Spiral explore chunks");
+        return _spiral;
     }
 
     protected boolean isChunkWithinSearchSpace(AltoClef mod, ChunkPos pos) {

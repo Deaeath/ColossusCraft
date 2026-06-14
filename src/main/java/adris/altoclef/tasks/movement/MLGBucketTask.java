@@ -29,7 +29,6 @@ public class MLGBucketTask extends Task {
 
     @Override
     protected void onStart(AltoClef mod) {
-        mod.getClientBaritone().getPathingBehavior().cancelEverything();
         _placedPos = null;
         // Look down; it helps the raycast and the place.
         if (mod.getPlayer() != null) {
@@ -95,7 +94,10 @@ public class MLGBucketTask extends Task {
 
     @Override
     protected void onStop(AltoClef mod, Task interruptTask) {
-        mod.getClientBaritone().getPathingBehavior().cancelEverything();
+        if (mod.getPlayer() != null && (mod.getPlayer().isSwimming() || mod.getPlayer().isInWater()
+                || mod.getPlayer().onGround() || mod.getPlayer().onClimbable())) {
+            mod.getPlayer().fallDistance = 0.0F;
+        }
         mod.getInputControls().release(Input.CLICK_RIGHT);
         mod.getInputControls().release(Input.SPRINT);
         mod.getInputControls().release(Input.JUMP);

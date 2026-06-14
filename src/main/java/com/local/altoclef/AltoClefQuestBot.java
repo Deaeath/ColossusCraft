@@ -15,7 +15,9 @@ import dev.ftb.mods.ftbquests.quest.TeamData;
 import dev.ftb.mods.ftbquests.quest.reward.ItemReward;
 import dev.ftb.mods.ftbquests.quest.task.ItemTask;
 import dev.ftb.mods.ftbquests.quest.task.Task;
+import baritone.api.BaritoneAPI;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -68,6 +70,9 @@ public final class AltoClefQuestBot {
     private static GoalMode goalMode = GoalMode.ATM_STAR;
     private static int ftbPayloadCooldown;
     private static final ArrayDeque<CustomPacketPayload> ftbPayloadQueue = new ArrayDeque<>();
+    private static final int CHEST_HIGHLIGHT_TICKS = 600;
+    private static final Map<BlockPos, Integer> chestHighlights = new LinkedHashMap<>();
+    private static int chestHighlightParticleTick;
     private static int pendingCraftMenuId = -1;
     private static int pendingCraftResultSlot = -1;
     private static int pendingCraftDelay;
@@ -128,33 +133,39 @@ public final class AltoClefQuestBot {
                         .then(Commands.literal("on").executes(ctx -> setAutoHunt(true)))
                         .then(Commands.literal("off").executes(ctx -> setAutoHunt(false))))
                 .then(Commands.literal("findchest")
-                        .then(Commands.argument("item", StringArgumentType.word())
+                        .then(Commands.argument("query", StringArgumentType.greedyString())
                                 .suggests(AltoClefCompletions::suggestItems)
-                                .executes(ctx -> findChest(StringArgumentType.getString(ctx, "item"), false))
-                                .then(Commands.literal("goto").executes(ctx -> findChest(StringArgumentType.getString(ctx, "item"), true)))))
+                                .executes(ctx -> {
+                                    String[] p = StringArgumentType.getString(ctx, "query").trim().split("\\s+", 2);
+                                    boolean goTo = p.length > 1 && p[1].equalsIgnoreCase("goto");
+                                    return findChest(p[0], goTo);
+                                })))
 
                 // Direct actions
-                .then(Commands.literal("kill").then(Commands.argument("entity", StringArgumentType.string())
+                .then(Commands.literal("kill").then(Commands.argument("entity", StringArgumentType.greedyString())
                         .suggests(AltoClefCompletions::suggestEntities)
-                        .executes(ctx -> kill(StringArgumentType.getString(ctx, "entity")))))
-                .then(Commands.literal("get").then(Commands.argument("item", StringArgumentType.word())
+                        .executes(ctx -> kill(StringArgumentType.getString(ctx, "entity").trim()))))
+                .then(Commands.literal("get").then(Commands.argument("query", StringArgumentType.greedyString())
                         .suggests(AltoClefCompletions::suggestItems)
-                        .executes(ctx -> get(StringArgumentType.getString(ctx, "item"), 1))
-                        .then(Commands.argument("count", IntegerArgumentType.integer(1))
-                                .executes(ctx -> get(StringArgumentType.getString(ctx, "item"), IntegerArgumentType.getInteger(ctx, "count"))))))
+                        .executes(ctx -> {
+                            String[] p = StringArgumentType.getString(ctx, "query").trim().split("\\s+", 2);
+                            int count = 1;
+                            if (p.length > 1) { try { count = Integer.parseInt(p[1]); } catch (NumberFormatException ignored) {} }
+                            return get(p[0], count);
+                        })))
                 .then(Commands.literal("goto")
                         .then(Commands.argument("x", IntegerArgumentType.integer())
                                 .then(Commands.argument("y", IntegerArgumentType.integer())
                                         .then(Commands.argument("z", IntegerArgumentType.integer())
                                                 .executes(ctx -> gotoPos(IntegerArgumentType.getInteger(ctx, "x"), IntegerArgumentType.getInteger(ctx, "y"), IntegerArgumentType.getInteger(ctx, "z"))))))
                         .then(Commands.literal("entity")
-                                .then(Commands.argument("type", StringArgumentType.word())
+                                .then(Commands.argument("type", StringArgumentType.greedyString())
                                         .suggests(AltoClefCompletions::suggestEntities)
-                                        .executes(ctx -> gotoEntity(StringArgumentType.getString(ctx, "type")))))
+                                        .executes(ctx -> gotoEntity(StringArgumentType.getString(ctx, "type").trim()))))
                         .then(Commands.literal("item")
-                                .then(Commands.argument("item", StringArgumentType.word())
+                                .then(Commands.argument("item", StringArgumentType.greedyString())
                                         .suggests(AltoClefCompletions::suggestItems)
-                                        .executes(ctx -> gotoItem(StringArgumentType.getString(ctx, "item")))))
+                                        .executes(ctx -> gotoItem(StringArgumentType.getString(ctx, "item").trim()))))
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .suggests(AltoClefCompletions::suggestPlayers)
                                 .executes(ctx -> gotoPlayer(StringArgumentType.getString(ctx, "player")))));
@@ -171,7 +182,23 @@ public final class AltoClefQuestBot {
                         .executes(ctx -> wardenGolems(6))
                         .then(Commands.argument("count", IntegerArgumentType.integer(1, 12))
                                 .executes(ctx -> wardenGolems(IntegerArgumentType.getInteger(ctx, "count")))))
-                .then(Commands.literal("stop").executes(ctx -> wardenStop())));
+                .then(Commands.literal("status").executes(ctx -> wardenStatus()))
+                .then(Commands.literal("plan").executes(ctx -> wardenPlan()))
+                .then(Commands.literal("abort").executes(ctx -> wardenStop()))
+                .then(Commands.literal("stop").executes(ctx -> wardenStop()))
+                .then(Commands.literal("retrap").executes(ctx -> wardenOverride("retrap")))
+                .then(Commands.literal("tower").executes(ctx -> wardenOverride("tower")))
+                .then(Commands.literal("config")
+                        .then(Commands.literal("retreat").then(Commands.argument("blocks", IntegerArgumentType.integer(24, 48))
+                                .executes(ctx -> wardenConfig("retreat", IntegerArgumentType.getInteger(ctx, "blocks")))))
+                        .then(Commands.literal("tower").then(Commands.argument("blocks", IntegerArgumentType.integer(4, 40))
+                                .executes(ctx -> wardenConfig("tower", IntegerArgumentType.getInteger(ctx, "blocks")))))
+                        .then(Commands.literal("arrows").then(Commands.argument("count", IntegerArgumentType.integer(1, 256))
+                                .executes(ctx -> wardenConfig("arrows", IntegerArgumentType.getInteger(ctx, "count")))))
+                        .then(Commands.literal("golems").then(Commands.argument("count", IntegerArgumentType.integer(0, 12))
+                                .executes(ctx -> wardenConfig("golems", IntegerArgumentType.getInteger(ctx, "count")))))
+                        .then(Commands.literal("retraps").then(Commands.argument("count", IntegerArgumentType.integer(0, 10))
+                                .executes(ctx -> wardenConfig("retraps", IntegerArgumentType.getInteger(ctx, "count")))))));
         root.then(Commands.literal("bow")
                 .then(Commands.literal("on").executes(ctx -> { BowAimbot.setEnabled(true); return 1; }))
                 .then(Commands.literal("off").executes(ctx -> { BowAimbot.setEnabled(false); return 1; }))
@@ -493,6 +520,11 @@ public final class AltoClefQuestBot {
     }
 
     private static int wardenFight(boolean gather) {
+        if (!gather && currentTaskIs(WardenTrapTask.class)) {
+            WardenTrapTask.requestFightOverride();
+            say("Warden: force fight");
+            return 1;
+        }
         upstreamPort.start();
         upstreamPort.core().runUserTask(new WardenTrapTask(gather),
                 () -> say("Warden trap task finished"));
@@ -513,6 +545,44 @@ public final class AltoClefQuestBot {
         upstreamPort.core().stopPathing();
         say("Warden task stopped");
         return 1;
+    }
+
+    private static int wardenStatus() {
+        say(WardenTrapTask.statusLine());
+        say("Warden config: " + WardenTrapTask.configLine());
+        return 1;
+    }
+
+    private static int wardenPlan() {
+        upstreamPort.start();
+        say(WardenTrapTask.planLine(upstreamPort.core()));
+        return 1;
+    }
+
+    private static int wardenOverride(String action) {
+        if (!currentTaskIs(WardenTrapTask.class)) {
+            say("Warden: no active trap task");
+            return 0;
+        }
+        switch (action) {
+            case "fight" -> WardenTrapTask.requestFightOverride();
+            case "retrap" -> WardenTrapTask.requestRetrapOverride();
+            case "tower" -> WardenTrapTask.requestTowerOverride();
+            default -> { say("Warden: unknown override " + action); return 0; }
+        }
+        say("Warden: override " + action);
+        return 1;
+    }
+
+    private static int wardenConfig(String key, int value) {
+        say("Warden config: " + WardenTrapTask.configure(key, value));
+        return 1;
+    }
+
+    private static boolean currentTaskIs(Class<? extends adris.altoclef.tasksystem.Task> type) {
+        return upstreamPort.running()
+                && upstreamPort.core().getUserTaskChain().getCurrentTask() != null
+                && type.isInstance(upstreamPort.core().getUserTaskChain().getCurrentTask());
     }
 
     private static int setAutoHunt(boolean on) {
@@ -681,7 +751,8 @@ public final class AltoClefQuestBot {
             say("ColossusCraft findchest: no opened chest is known to hold " + id.getPath() + " (open chests to index them)");
             return 0;
         }
-        StringBuilder sb = new StringBuilder("ColossusCraft findchest " + id.getPath() + ": ");
+        // Print results
+        StringBuilder sb = new StringBuilder("findchest " + id.getPath() + ": ");
         int shown = Math.min(found.size(), 5);
         for (int i = 0; i < shown; i++) {
             adris.altoclef.trackers.storage.ContainerCache c = found.get(i);
@@ -691,9 +762,16 @@ public final class AltoClefQuestBot {
         }
         if (found.size() > shown) sb.append(" (+" + (found.size() - shown) + " more)");
         say(sb.toString());
+
+        // Highlight all found chests with particles burst on the client
+        for (int i = 0; i < shown; i++) {
+            BlockPos p = found.get(i).getBlockPos();
+            highlightBlock(mc, p);
+        }
+
+        BlockPos nearest = found.get(0).getBlockPos();
         if (travel) {
-            BlockPos p = found.get(0).getBlockPos();
-            gotoPos(p.getX(), p.getY(), p.getZ());
+            say("ColossusCraft findchest: goto disabled; highlighted only @ " + nearest.toShortString());
         }
         return 1;
     }
@@ -771,6 +849,7 @@ public final class AltoClefQuestBot {
     }
 
     private static void clientTick(ClientTickEvent.Post event) {
+        tickChestHighlights();
         // ATM10 addon must never interfere with the vanilla AltoClef port: stay fully inert
         // (no FTB packets, no craft-menu/slot manipulation) unless explicitly enabled via /atmquests on.
         if (!enabled) {
@@ -2629,6 +2708,57 @@ public final class AltoClefQuestBot {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             mc.player.displayClientMessage(Component.literal(message), false);
+        }
+    }
+
+    private static void highlightBlock(Minecraft mc, BlockPos p) {
+        if (mc.level == null) return;
+        chestHighlights.put(p.immutable(), CHEST_HIGHLIGHT_TICKS);
+        spawnChestMarker(mc, p, true);
+    }
+
+    private static void tickChestHighlights() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) {
+            chestHighlights.clear();
+            return;
+        }
+        if (chestHighlights.isEmpty()) {
+            return;
+        }
+        boolean emit = ++chestHighlightParticleTick % 5 == 0;
+        java.util.Iterator<Map.Entry<BlockPos, Integer>> it = chestHighlights.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<BlockPos, Integer> entry = it.next();
+            int ticks = entry.getValue() - 1;
+            if (ticks <= 0) {
+                it.remove();
+                continue;
+            }
+            entry.setValue(ticks);
+            if (emit) {
+                spawnChestMarker(mc, entry.getKey(), false);
+            }
+        }
+    }
+
+    private static void spawnChestMarker(Minecraft mc, BlockPos p, boolean burst) {
+        if (mc.level == null) return;
+        double cx = p.getX() + 0.5, cy = p.getY() + 0.5, cz = p.getZ() + 0.5;
+        int notes = burst ? 12 : 4;
+        for (int i = 0; i < notes; i++) {
+            double angle = i * Math.PI * 2 / 12;
+            mc.level.addParticle(ParticleTypes.NOTE,
+                cx + Math.cos(angle) * 0.6, cy + 0.8, cz + Math.sin(angle) * 0.6,
+                (i / 24.0), 0, 0);
+        }
+        int column = burst ? 5 : 2;
+        for (int i = 0; i < column; i++) {
+            mc.level.addParticle(ParticleTypes.HAPPY_VILLAGER,
+                cx + (Math.random() - 0.5) * 0.4,
+                cy + i * 0.4,
+                cz + (Math.random() - 0.5) * 0.4,
+                0, 0.1, 0);
         }
     }
 

@@ -5,7 +5,9 @@ import adris.altoclef.tasks.container.CraftRecipeBookTask;
 import adris.altoclef.tasks.container.OpenCraftingTableTask;
 import adris.altoclef.tasks.container.SmeltInFurnaceTask;
 import adris.altoclef.tasks.entity.KillAndLootTask;
+import adris.altoclef.tasks.resources.MineAndCollectTask;
 import adris.altoclef.tasksystem.Task;
+import adris.altoclef.util.MiningRequirement;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import adris.altoclef.util.helpers.StorageHelper;
@@ -101,13 +103,8 @@ public class CollectItemTask extends Task {
         List<Block> blocks = mineableBlocks();
         if (!blocks.isEmpty()) {
             noRouteCounter = 0;
-            String ids = blocks.stream()
-                    .map(BuiltInRegistries.BLOCK::getKey)
-                    .map(ResourceLocation::toString)
-                    .reduce((a, b) -> a + " " + b)
-                    .orElse("");
-            runBaritone(mod, "mine " + ids, "mine " + ids);
-            return null;
+            setDebugState("Mining " + target);
+            return new MineAndCollectTask(target, blocks.toArray(Block[]::new), MiningRequirement.HAND);
         }
         noRouteCounter++;
         if (noRouteCounter >= NO_ROUTE_WARNING_THRESHOLD) {

@@ -13,9 +13,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.entity.monster.warden.Warden;
+import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -31,13 +32,15 @@ import java.util.List;
  * Warden flee: handled by MobDefenseChain (Warden is already in getUniversallyDangerousMob).
  */
 public final class AncientCityHelper {
-    private static final int FREEZE_ANGER = 70;   // warden anger level that triggers freeze
-    private static final int FREEZE_RANGE = 24;   // blocks — don't react to distant wardens
-    private static final int SCULK_SCAN_RANGE = 20;
+    private static final int FREEZE_ANGER = 70;
+    private static final int FREEZE_RANGE = 24;
+    private static final int SCULK_SCAN_RANGE = 10; // sculk sensor detection range is 8 blocks
 
     private static boolean initialized;
-    private static boolean manualSneak = false;   // /cc sneak on forces it regardless of biome
-    private static boolean frozen = false;         // currently frozen waiting for warden to calm
+    private static boolean manualSneak = false;
+    private static boolean frozen = false;
+    private static boolean sculkNearby = false;   // cached sculk sensor/shrieker proximity
+    private static int sculkScanCooldown = 0;
 
     private AncientCityHelper() {}
 
@@ -98,42 +101,56 @@ public final class AncientCityHelper {
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null) return;
 
-        boolean inDeepDark = mc.level.getBiome(player.blockPosition()).is(Biomes.DEEP_DARK);
-        boolean shouldSneak = manualSneak || inDeepDark;
-
-        // Warden awareness — freeze only while warden is building anger toward the player.
-        // Once it locks on (or we've teleported away), unfreeze immediately.
-        Warden angryWarden = nearbyAngryWarden(mc, player);
-        boolean wardenBuilding = angryWarden != null
-                && angryWarden.getClientAngerLevel() >= FREEZE_ANGER
-                && (angryWarden.getTarget() == null || !angryWarden.getTarget().equals(player));
-        if (wardenBuilding) {
-            if (!frozen) {
-                frozen = true;
-                try {
-                    BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior().cancelEverything();
-                } catch (Throwable ignored) {}
-                say("Warden nearby — holding still (anger " + angryWarden.getClientAngerLevel() + ")");
+        // Warden freeze only during /cc warden
+        if (com.local.altoclef.WardenTrapTask.isActive) {
+            Warden angryWarden = nearbyAngryWarden(mc, player);
+            boolean wardenBuilding = angryWarden != null
+                    && angryWarden.getClientAngerLevel() >= FREEZE_ANGER
+                    && (angryWarden.getTarget() == null || !angryWarden.getTarget().equals(player));
+            if (wardenBuilding) {
+                if (!frozen) {
+                    frozen = true;
+                    say("Warden nearby — holding still (anger " + angryWarden.getClientAngerLevel() + ")");
+                }
+                applySneak(true);
+                return;
             }
-            applySneak(true);
-            return;
-        } else if (frozen) {
+        }
+        if (frozen) {
             frozen = false;
-            applySneak(false);  // explicit release — don't rely on fall-through
             say("Warden calmed — resuming");
         }
 
+        // Sneak near sculk sensors/shriekers only — scan every 5 ticks
+        if (--sculkScanCooldown <= 0) {
+            sculkScanCooldown = 5;
+            sculkNearby = isSculkNearby(mc, player);
+        }
+
+        boolean wardenNearby = nearbyAngryWarden(mc, player) != null;
+        boolean shouldSneak = (manualSneak || sculkNearby) && !wardenNearby;
         applySneak(shouldSneak);
     }
 
-    /** Force sneak at both the MC key-binding level and Baritone's input override. */
+    private static boolean isSculkNearby(Minecraft mc, LocalPlayer player) {
+        BlockPos origin = player.blockPosition();
+        int r = SCULK_SCAN_RANGE;
+        for (int x = -r; x <= r; x++) {
+            for (int y = -r; y <= r; y++) {
+                for (int z = -r; z <= r; z++) {
+                    Block b = mc.level.getBlockState(origin.offset(x, y, z)).getBlock();
+                    if (b == Blocks.SCULK_SENSOR || b == Blocks.CALIBRATED_SCULK_SENSOR
+                            || b == Blocks.SCULK_SHRIEKER) return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private static void applySneak(boolean on) {
-        Minecraft mc = Minecraft.getInstance();
-        mc.options.keyShift.setDown(on);
         try {
             var bar = BaritoneAPI.getProvider().getPrimaryBaritone();
             bar.getInputOverrideHandler().setInputForceState(Input.SNEAK, on);
-            // Tell Baritone's pathfinder not to sprint — setInputForceState is re-overridden every tick.
             BaritoneAPI.getSettings().allowSprint.value = !on;
         } catch (Throwable ignored) {}
     }

@@ -1,10 +1,13 @@
 package adris.altoclef.tasks.movement;
 
 import adris.altoclef.AltoClef;
+import adris.altoclef.tasks.construction.DestroyBlockTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.Dimension;
 import adris.altoclef.util.helpers.WorldHelper;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.state.BlockState;
 
 public class GetToBlockTask extends Task {
     private final BlockPos target;
@@ -35,12 +38,52 @@ public class GetToBlockTask extends Task {
         if (dimension != null && dimension != WorldHelper.getCurrentDimension()) {
             return new DefaultGoToDimensionTask(dimension);
         }
+        Task clear = clearPathClutter(mod);
+        if (clear != null) {
+            commandCooldown = 0;
+            setDebugState("Clear path clutter near " + target.toShortString());
+            return clear;
+        }
         if (commandCooldown-- <= 0) {
             commandCooldown = 40;
             mod.runBaritone("goto " + target.getX() + " " + target.getY() + " " + target.getZ());
         }
         setDebugState("Goto " + target.toShortString());
         return null;
+    }
+
+    private Task clearPathClutter(AltoClef mod) {
+        if (mod.getPlayer() == null || mod.getWorld() == null) return null;
+        BlockPos player = mod.getPlayer().blockPosition();
+        int sx = Integer.compare(target.getX(), player.getX());
+        int sz = Integer.compare(target.getZ(), player.getZ());
+        BlockPos[] centers = {
+                player,
+                player.offset(sx, 0, sz),
+                player.offset(sx, 0, 0),
+                player.offset(0, 0, sz)
+        };
+        for (BlockPos center : centers) {
+            for (int y = player.getY(); y <= player.getY() + 1; y++) {
+                for (int x = center.getX() - 1; x <= center.getX() + 1; x++) {
+                    for (int z = center.getZ() - 1; z <= center.getZ() + 1; z++) {
+                        BlockPos pos = new BlockPos(x, y, z);
+                        BlockState state = mod.getWorld().getBlockState(pos);
+                        if (isPathClutter(state)) return new DestroyBlockTask(pos);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean isPathClutter(BlockState state) {
+        if (state == null || state.isAir() || !state.getFluidState().isEmpty()) return false;
+        String path = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
+        return path.equals("decorated_pot")
+                || path.equals("flower_pot")
+                || path.startsWith("potted_")
+                || (path.contains("pot") && !path.contains("potato"));
     }
 
     @Override

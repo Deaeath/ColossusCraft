@@ -67,11 +67,15 @@ public final class NeoForgeAltoClefMod {
                 .then(Commands.literal("give")
                         .then(Commands.argument("player", StringArgumentType.word())
                                 .suggests(com.local.altoclef.AltoClefCompletions::suggestPlayers)
-                                .then(Commands.argument("item", StringArgumentType.word())
+                                .then(Commands.argument("item_and_count", StringArgumentType.greedyString())
                                         .suggests(com.local.altoclef.AltoClefCompletions::suggestItems)
-                                        .executes(ctx -> coreExec("give " + StringArgumentType.getString(ctx, "player") + " " + StringArgumentType.getString(ctx, "item")))
-                                        .then(Commands.argument("count", IntegerArgumentType.integer(1))
-                                                .executes(ctx -> coreExec("give " + StringArgumentType.getString(ctx, "player") + " " + StringArgumentType.getString(ctx, "item") + " " + IntegerArgumentType.getInteger(ctx, "count")))))))
+                                        .executes(ctx -> {
+                                            String player = StringArgumentType.getString(ctx, "player");
+                                            String[] p = StringArgumentType.getString(ctx, "item_and_count").trim().split("\\s+", 2);
+                                            String item = p[0];
+                                            String cmd = p.length > 1 ? "give " + player + " " + item + " " + p[1] : "give " + player + " " + item;
+                                            return coreExec(cmd);
+                                        }))))
                 .then(Commands.literal("meat")
                         .then(Commands.argument("count", IntegerArgumentType.integer(1))
                                 .executes(ctx -> coreExec("meat " + IntegerArgumentType.getInteger(ctx, "count")))))
@@ -81,9 +85,9 @@ public final class NeoForgeAltoClefMod {
                                 .executes(ctx -> coreExec("gamma " + IntegerArgumentType.getInteger(ctx, "value")))))
                 .then(Commands.literal("inventory")
                         .executes(ctx -> coreExec("inventory"))
-                        .then(Commands.argument("item", StringArgumentType.word())
+                        .then(Commands.argument("item", StringArgumentType.greedyString())
                                 .suggests(com.local.altoclef.AltoClefCompletions::suggestItems)
-                                .executes(ctx -> coreExec("inventory " + StringArgumentType.getString(ctx, "item")))))
+                                .executes(ctx -> coreExec("inventory " + StringArgumentType.getString(ctx, "item").trim()))))
                 .then(Commands.literal("locate")
                         .then(Commands.argument("structure", StringArgumentType.word())
                                 .suggests(com.local.altoclef.AltoClefCompletions::suggestLocations)

@@ -1,29 +1,18 @@
 package adris.altoclef.chains;
 
 import adris.altoclef.AltoClef;
-import adris.altoclef.TaskCatalogue;
 import adris.altoclef.tasks.movement.MLGBucketTask;
 import adris.altoclef.tasksystem.ITaskOverridesGrounded;
 import adris.altoclef.tasksystem.TaskRunner;
-import adris.altoclef.util.helpers.LookHelper;
 import adris.altoclef.util.time.TimerGame;
-import baritone.api.utils.Rotation;
 import baritone.api.utils.input.Input;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Blocks;
-
-import java.util.Optional;
 
 public class MLGBucketFallChain extends SingleTaskChain implements ITaskOverridesGrounded {
 
-    private final TimerGame _tryCollectWaterTimer = new TimerGame(4);
-    private final TimerGame _pickupRepeatTimer = new TimerGame(0.25);
-    private MLGBucketTask _lastMLG = null;
-    private boolean _wasPickingUp = false;
     private boolean _doingChorusFruit = false;
+    private final TimerGame _recentMLGTimer = new TimerGame(1.5);
 
     public MLGBucketFallChain(TaskRunner runner) {
         super(runner);
@@ -31,57 +20,19 @@ public class MLGBucketFallChain extends SingleTaskChain implements ITaskOverride
 
     @Override
     protected void onTaskFinish(AltoClef mod) {
+        mainTask = null;
     }
 
     @Override
     public float getPriority(AltoClef mod) {
         if (!AltoClef.inGame()) return Float.NEGATIVE_INFINITY;
-        if (isFallingOhNo(mod)) {
-            _tryCollectWaterTimer.reset();
+        if (isFallingOhNo(mod) && (mainTask != null || mod.getItemStorage().hasItem(Items.WATER_BUCKET))) {
+            _recentMLGTimer.reset();
             setTask(new MLGBucketTask());
-            _lastMLG = (MLGBucketTask) mainTask;
             return 100;
-        } else if (!_tryCollectWaterTimer.elapsed()) {
-            // We just placed water, try to collect it.
-            if (mod.getItemStorage().hasItem(Items.BUCKET) && !mod.getItemStorage().hasItem(Items.WATER_BUCKET)) {
-                if (_lastMLG != null) {
-                    BlockPos placed = _lastMLG.getWaterPlacedPos();
-                    boolean isPlacedWater;
-                    try {
-                        isPlacedWater = mod.getWorld().getBlockState(placed).getBlock() == Blocks.WATER;
-                    } catch (Exception e) {
-                        isPlacedWater = false;
-                    }
-                    if (placed != null && placed.closerToCenterThan(mod.getPlayer().position(), 5.5) && isPlacedWater) {
-                        BlockPos toInteract = placed;
-                        mod.getBehaviour().push();
-                        Optional<Rotation> reach = LookHelper.getReach(toInteract, Direction.UP);
-                        if (reach.isPresent()) {
-                            mod.getClientBaritone().getLookBehavior().updateTarget(reach.get(), true);
-                            if (mod.getClientBaritone().getPlayerContext().isLookingAt(toInteract)) {
-                                if (mod.getSlotHandler().forceEquipItem(Items.BUCKET)) {
-                                    if (_pickupRepeatTimer.elapsed()) {
-                                        _pickupRepeatTimer.reset();
-                                        mod.getInputControls().tryPress(Input.CLICK_RIGHT);
-                                        _wasPickingUp = true;
-                                    } else if (_wasPickingUp) {
-                                        _wasPickingUp = false;
-                                    }
-                                }
-                            }
-                        } else {
-                            // Eh just try collecting water the regular way if all else fails.
-                            setTask(TaskCatalogue.getItemTask(Items.WATER_BUCKET, 1));
-                        }
-                        mod.getBehaviour().pop();
-                        return 60;
-                    }
-                }
-            }
         }
-        if (_wasPickingUp) {
-            _wasPickingUp = false;
-            _lastMLG = null;
+        if (mainTask != null) {
+            return 100;
         }
         if (mod.getPlayer().hasEffect(MobEffects.LEVITATION) &&
                 !mod.getPlayer().getCooldowns().isOnCooldown(Items.CHORUS_FRUIT) &&
@@ -97,7 +48,6 @@ public class MLGBucketFallChain extends SingleTaskChain implements ITaskOverride
             mod.getInputControls().release(Input.CLICK_RIGHT);
             mod.getExtraBaritoneSettings().setInteractionPaused(false);
         }
-        _lastMLG = null;
         return Float.NEGATIVE_INFINITY;
     }
 
@@ -112,8 +62,22 @@ public class MLGBucketFallChain extends SingleTaskChain implements ITaskOverride
         return true;
     }
 
-    public boolean doneMLG() {
-        return _lastMLG == null;
+    @Override
+    public boolean isPassive() {
+        return true;
+    }
+
+    @Override
+    public boolean pausesBaritone() {
+        return mainTask != null;
+    }
+
+    public boolean doneMLG(AltoClef mod) {
+        return !isFallingOhNo(mod);
+    }
+
+    public boolean recentlyHandledMLG() {
+        return !_recentMLGTimer.elapsed();
     }
 
     public boolean isChorusFruiting() {

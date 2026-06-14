@@ -79,8 +79,7 @@ public final class AiChat {
         "\n/cc sweep add <item> [count] — add another item to the active sweep list" +
         "\n/cc sweep off — stop sweeping" +
         "\n/cc sweep status — show what sweep is watching for" +
-        "\n/cc findchest <item> — search previously-opened chests for an item, show locations and counts" +
-        "\n/cc findchest <item> goto — go to the nearest chest known to hold that item" +
+        "\n/cc findchest <item> — search previously-opened chests for an item and highlight known locations" +
         "\nNote: findchest only knows about chests you (or the bot) have already opened; it cannot x-ray sealed chests." +
         "\n" +
         "\n=== COMBAT AND ENEMIES ===" +

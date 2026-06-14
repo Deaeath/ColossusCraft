@@ -14,6 +14,9 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -23,6 +26,9 @@ public final class EmergencyHome {
     private static boolean enabled = true;
     private static float thresholdHealth = 6.0F;
     private static int cooldownTicks;
+    private static boolean trackingFall;
+    private static double fallPeakY;
+    private static float trackedFallDistance;
 
     private EmergencyHome() {
     }
@@ -64,6 +70,7 @@ public final class EmergencyHome {
                 || player.isCreative() || player.isSpectator()) {
             return;
         }
+        updateFallTracker(player);
         String reason = emergencyReason(mc, player);
         if (reason != null) {
             goHome(reason);
@@ -94,7 +101,7 @@ public final class EmergencyHome {
         return 1;
     }
 
-    static boolean goHome(String reason) {
+    public static boolean goHome(String reason) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getConnection() == null) {
             say("Emergency /home failed: not connected");
@@ -153,18 +160,86 @@ public final class EmergencyHome {
         return false;
     }
 
+    private static boolean safeFromFall(LocalPlayer player) {
+        return player.onGround() || player.isInWater() || player.isSwimming() || player.onClimbable();
+    }
+
+    private static void updateFallTracker(LocalPlayer player) {
+        if (safeFromFall(player)) {
+            player.fallDistance = 0.0F;
+            trackingFall = false;
+            fallPeakY = player.getY();
+            trackedFallDistance = 0.0F;
+            return;
+        }
+        if (!trackingFall) {
+            trackingFall = true;
+            fallPeakY = player.getY();
+            trackedFallDistance = 0.0F;
+        }
+        if (player.getDeltaMovement().y > 0.0D) {
+            fallPeakY = Math.max(fallPeakY, player.getY());
+        }
+        trackedFallDistance = (float) Math.max(0.0D, fallPeakY - player.getY());
+    }
+
     private static boolean fallIsLikelyLethal(Minecraft mc, LocalPlayer player, float health) {
-        if (player.onGround() || player.isInWater() || player.onClimbable() || player.getDeltaMovement().y >= -0.5) {
+        if (safeFromFall(player) || player.getDeltaMovement().y >= -0.5) {
             return false;
         }
         int minY = mc.level == null ? -64 : mc.level.getMinBuildHeight();
-        if (player.getY() < minY + 16) {
+        if (player.getY() < minY + 4 && !hasLandingBelow(mc, player, 16.0D)) {
+            adris.altoclef.Debug.logInternal("[EmergencyHome] void fall: trackedFallDistance="
+                    + trackedFallDistance
+                    + " clientFallDistance=" + player.fallDistance
+                    + " yVel=" + player.getDeltaMovement().y
+                    + " y=" + player.getY()
+                    + " minY=" + minY);
             return true;
         }
         if (player.hasEffect(MobEffects.SLOW_FALLING) || hasWaterBucket(player)) {
             return false;
         }
-        return player.fallDistance - 3.0F >= health - 2.0F;
+        // Suppress only while the MLG task is actually running. Fall distance
+        // is tracked locally below, so no post-MLG grace window is needed here.
+        try {
+            adris.altoclef.AltoClefPort port = adris.altoclef.platform.NeoForgeAltoClefMod.port();
+            if (port != null && port.running()) {
+                adris.altoclef.chains.MLGBucketFallChain mlg = port.core().getMLGBucketChain();
+                if (mlg.pausesBaritone()) {
+                    return false;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        boolean lethal = trackedFallDistance - 3.0F >= health - 2.0F;
+        if (lethal) {
+            adris.altoclef.Debug.logInternal("[EmergencyHome] lethal fall: trackedFallDistance="
+                    + trackedFallDistance
+                    + " clientFallDistance=" + player.fallDistance
+                    + " fallPeakY=" + fallPeakY
+                    + " yVel=" + player.getDeltaMovement().y
+                    + " y=" + player.getY()
+                    + " health=" + health);
+        } else if (player.fallDistance > trackedFallDistance + 4.0F) {
+            adris.altoclef.Debug.logInternal("[EmergencyHome] ignored stale client fallDistance="
+                    + player.fallDistance
+                    + " trackedFallDistance=" + trackedFallDistance
+                    + " yVel=" + player.getDeltaMovement().y
+                    + " y=" + player.getY());
+        }
+        return lethal;
+    }
+
+    private static boolean hasLandingBelow(Minecraft mc, LocalPlayer player, double distance) {
+        if (mc.level == null) {
+            return false;
+        }
+        net.minecraft.world.phys.Vec3 start = player.position();
+        net.minecraft.world.phys.Vec3 end = start.add(0.0D, -distance, 0.0D);
+        BlockHitResult hit = mc.level.clip(new ClipContext(start, end, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.ANY, player));
+        return hit.getType() == HitResult.Type.BLOCK;
     }
 
     private static boolean hasWaterBucket(LocalPlayer player) {

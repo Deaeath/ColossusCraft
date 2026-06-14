@@ -73,7 +73,7 @@ public final class AltoClefPort {
         if (TaskCatalogue.taskExists(itemName)) {
             Task task = TaskCatalogue.getItemTask(itemName, count);
             start();
-            altoClef.getUserTaskChain().runTask(altoClef, task, () -> platform.log("Collected " + itemName));
+            altoClef.getUserTaskChain().runTask(altoClef, task, () -> platform.log("Collected " + itemName), true);
             return true;
         }
         // Fall back to registry lookup — handles any vanilla item by its registry name
@@ -88,7 +88,7 @@ public final class AltoClefPort {
         }
         ItemTarget target = new ItemTarget(registryItem, count);
         start();
-        altoClef.getUserTaskChain().runTask(altoClef, new CollectItemTask(target), () -> platform.log("Collected " + itemName));
+        altoClef.getUserTaskChain().runTask(altoClef, new CollectItemTask(target), () -> platform.log("Collected " + itemName), true);
         return true;
     }
 

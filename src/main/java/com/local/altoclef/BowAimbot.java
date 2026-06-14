@@ -10,6 +10,8 @@ import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -33,12 +35,13 @@ public final class BowAimbot {
 
     private static final double MAX_RANGE = 50.0;
     private static final double GRAVITY = 0.05;           // blocks / tick²
-    private static final int    MIN_CHARGE_TICKS = 18;    // ≥ 18 ticks → near-full power
+    private static final int    MIN_CHARGE_TICKS = 20;    // 20 ticks = full charge for vanilla bow
     private static final int    CROSSBOW_CHARGE_TICKS = 25;
 
     private static boolean enabled = false;
     private static boolean initialized = false;
     private static boolean charging = false;
+    private static int forcedTargetId = -1;
 
     private BowAimbot() {}
 
@@ -49,12 +52,27 @@ public final class BowAimbot {
     }
 
     public static void setEnabled(boolean on) {
+        if (enabled == on) {
+            if (!on) releaseUse();
+            return;
+        }
         enabled = on;
-        if (!on) releaseUse();
+        if (!on) {
+            forcedTargetId = -1;
+            releaseUse();
+        }
         say("Bow aimbot: " + (on ? "ON" : "OFF"));
     }
 
     public static boolean isEnabled() { return enabled; }
+
+    public static void setForcedTarget(LivingEntity target) {
+        forcedTargetId = target == null ? -1 : target.getId();
+    }
+
+    public static void clearForcedTarget() {
+        forcedTargetId = -1;
+    }
 
     // ── Tick ────────────────────────────────────────────────────────────────
 
@@ -98,7 +116,8 @@ public final class BowAimbot {
         if (aimPoint == null) return;
 
         double dx = aimPoint.x - player.getX();
-        double dy = aimPoint.y + target.getEyeHeight() * 0.5 - (player.getY() + player.getEyeHeight());
+        // Aim at eye position (same height hasClearShot uses) — avoids blocks at warden torso level
+        double dy = aimPoint.y + target.getEyeHeight() - (player.getY() + player.getEyeHeight());
         double dz = aimPoint.z - player.getZ();
         double horizDist = Math.sqrt(dx * dx + dz * dz);
 
@@ -123,29 +142,32 @@ public final class BowAimbot {
 
     /**
      * Given horizontal distance D, vertical offset H (target - shooter eye),
-     * and arrow velocity V (blocks/tick), returns the launch pitch in degrees
+     * and initial arrow velocity V (blocks/tick), returns the launch pitch in degrees
      * (negative = upward in MC convention).
      *
-     * Physics: y = V*sin(a)*t - 0.5*g*t²
-     *          x = V*cos(a)*t   →  t = D / (V*cos(a))
-     * Substituting and solving the quadratic in tan(a):
-     *   g*D²/(2V²) * tan²(a) - D*tan(a) + (H + g*D²/(2V²)) = 0
+     * Accounts for arrow drag (0.99/tick): the effective velocity over the flight
+     * is approximated as V × drag^(flight_time / 2), reducing the range. Without
+     * this correction shots fall short at distances > 15 blocks.
      */
     private static Double ballisticPitch(double D, double H, double V) {
-        double k = GRAVITY * D * D / (2.0 * V * V);
-        // quadratic: k*t² - D*t + (H + k) = 0  where t = tan(a)
+        // Estimate flight ticks at this velocity, then compute average drag factor
+        double flightEst = D / Math.max(V, 0.5);
+        double dragFactor = Math.pow(0.99, flightEst / 2.0); // midpoint approximation
+        double Ve = V * dragFactor;                            // drag-corrected effective velocity
+
+        double k = GRAVITY * D * D / (2.0 * Ve * Ve);
         double discriminant = D * D - 4.0 * k * (H + k);
-        if (discriminant < 0) return null; // out of range
-        // Use the lower-angle solution (flatter trajectory)
+        if (discriminant < 0) return null;
         double tanA = (D - Math.sqrt(discriminant)) / (2.0 * k);
         double angleRad = Math.atan(tanA);
-        return -Math.toDegrees(angleRad); // MC pitch: negative = look up
+        return -Math.toDegrees(angleRad);
     }
 
-    /** Velocity (blocks/tick) at given charge ticks for a regular bow. */
+    /** Velocity (blocks/tick) at given charge ticks for a regular bow (vanilla formula). */
     private static double bowVelocity(int ticks) {
-        double charge = Math.min(ticks / 20.0, 1.0);
-        return charge * 3.0;
+        float f = Math.min(ticks / 20.0f, 1.0f);
+        f = (f * f + f * 2.0f) / 3.0f;  // vanilla BowItem.getPowerForTime
+        return f * 3.0;
     }
 
     // ── Target prediction ───────────────────────────────────────────────────
@@ -168,12 +190,23 @@ public final class BowAimbot {
     // ── Targeting ───────────────────────────────────────────────────────────
 
     private static LivingEntity findTarget(Minecraft mc, LocalPlayer player) {
+        if (forcedTargetId >= 0) {
+            Entity forced = mc.level.getEntity(forcedTargetId);
+            if (forced instanceof LivingEntity le
+                    && le.isAlive()
+                    && le.distanceToSqr(player) <= MAX_RANGE * MAX_RANGE
+                    && hasSafeShot(mc, player, le)) {
+                return le;
+            }
+            return null;
+        }
         LivingEntity best = null;
         double bestDist = MAX_RANGE * MAX_RANGE;
         for (Entity e : mc.level.entitiesForRendering()) {
             if (!(e instanceof LivingEntity le)) continue;
             if (!le.isAlive() || le == player) continue;
             if (!(le instanceof Enemy)) continue;
+            if (!hasSafeShot(mc, player, le)) continue;
             double d = le.distanceToSqr(player);
             if (d < bestDist) {
                 best = le;
@@ -181,6 +214,60 @@ public final class BowAimbot {
             }
         }
         return best;
+    }
+
+    public static boolean hasSafeShot(Minecraft mc, LocalPlayer player, LivingEntity target) {
+        return hasClearShot(mc, player, target) && hasArrowPathClear(mc, player, target);
+    }
+
+    public static boolean hasClearShot(Minecraft mc, LocalPlayer player, LivingEntity target) {
+        if (mc.level == null || player == null || target == null) return false;
+        Vec3 start = player.getEyePosition();
+        Vec3 end = target.getEyePosition();
+        // OUTLINE mode: uses block selection shape, not collision shape.
+        // This correctly ignores partial/transparent decorative blocks (candles, lanterns,
+        // sculk features) that have tiny colliders but aren't actual line-of-sight blockers.
+        HitResult hit = mc.level.clip(new ClipContext(start, end,
+                ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+        if (hit.getType() == HitResult.Type.MISS) return true;
+        // Give a 2-block tolerance so the hit can be right at the target's position
+        return hit.getLocation().distanceToSqr(start) >= end.distanceToSqr(start) - 4.0D;
+    }
+
+    public static boolean hasArrowPathClear(Minecraft mc, LocalPlayer player, LivingEntity target) {
+        if (mc.level == null || player == null || target == null) return false;
+        Vec3 start = player.getEyePosition();
+        Vec3 end = target.getEyePosition();
+        double dx = end.x - start.x;
+        double dy = end.y - start.y;
+        double dz = end.z - start.z;
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        if (horiz < 0.001D) return false;
+        Double pitchDeg = ballisticPitch(horiz, dy, 3.0D);
+        if (pitchDeg == null) return false;
+        double yaw = Math.atan2(-dx, dz);
+        double pitch = Math.toRadians(pitchDeg);
+        Vec3 velocity = new Vec3(
+                -Math.sin(yaw) * Math.cos(pitch) * 3.0D,
+                -Math.sin(pitch) * 3.0D,
+                Math.cos(yaw) * Math.cos(pitch) * 3.0D);
+        Vec3 prev = start;
+        Vec3 pos = start;
+        for (int tick = 0; tick < 80; tick++) {
+            pos = pos.add(velocity);
+            HitResult hit = mc.level.clip(new ClipContext(prev, pos,
+                    ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+            if (hit.getType() != HitResult.Type.MISS
+                    && hit.getLocation().distanceToSqr(start) < end.distanceToSqr(start) - 1.0D) {
+                return false;
+            }
+            if (pos.distanceToSqr(end) < 4.0D || pos.distanceToSqr(start) > end.distanceToSqr(start) + 16.0D) {
+                return true;
+            }
+            prev = pos;
+            velocity = velocity.scale(0.99D).add(0.0D, -GRAVITY, 0.0D);
+        }
+        return false;
     }
 
     // ── Equipment ───────────────────────────────────────────────────────────

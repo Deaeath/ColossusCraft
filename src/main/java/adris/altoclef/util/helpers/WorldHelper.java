@@ -177,8 +177,12 @@ public final class WorldHelper {
     }
 
     public static boolean canBreak(AltoClef mod, BlockPos pos) {
-        return pos != null && canReach(mod, pos) && mod.getWorld() != null
-                && mod.getWorld().getBlockState(pos).getDestroySpeed(mod.getWorld(), pos) >= 0;
+        if (pos == null || mod.getWorld() == null) return false;
+        if (!canReach(mod, pos)) return false;
+        net.minecraft.world.level.block.state.BlockState state = mod.getWorld().getBlockState(pos);
+        if (state.getDestroySpeed(mod.getWorld(), pos) < 0) return false;
+        if (com.local.altoclef.BlockBreakBlacklist.isBlocked(state)) return false;
+        return true;
     }
 
     public static boolean isInNetherPortal(AltoClef mod) {

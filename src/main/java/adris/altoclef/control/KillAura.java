@@ -114,7 +114,7 @@ public class KillAura {
                 (mod.getItemStorage().hasItem(Items.SHIELD) || mod.getItemStorage().hasItemInOffhand(Items.SHIELD)) &&
                 (Double.isInfinite(_forceFieldRange) || entities.get().distanceToSqr(mod.getPlayer()) < _forceFieldRange * _forceFieldRange ||
                         entities.get().distanceToSqr(mod.getPlayer()) < 40) &&
-                !mod.getMLGBucketChain().isFallingOhNo(mod) && mod.getMLGBucketChain().doneMLG() &&
+                !mod.getMLGBucketChain().isFallingOhNo(mod) && mod.getMLGBucketChain().doneMLG(mod) &&
                 !mod.getMLGBucketChain().isChorusFruiting() &&
                 !mod.getPlayer().getCooldowns().isOnCooldown(offhandItem)) {
             if (entities.get().getClass() != Creeper.class && entities.get().getClass() != Hoglin.class &&
@@ -148,7 +148,7 @@ public class KillAura {
                     performDelayedAttack(mod);
                 } else {
                     if (!mod.getFoodChain().needsToEat() && !mod.getMLGBucketChain().isFallingOhNo(mod) &&
-                            mod.getMLGBucketChain().doneMLG() && !mod.getMLGBucketChain().isChorusFruiting()) {
+                            mod.getMLGBucketChain().doneMLG(mod) && !mod.getMLGBucketChain().isChorusFruiting()) {
                         // Attack force mobs ALWAYS.
                         if (_forceHit != null) {
                             attack(mod, _forceHit, true);
@@ -171,7 +171,7 @@ public class KillAura {
 
     private void performDelayedAttack(AltoClef mod) {
         if (!mod.getFoodChain().needsToEat() && !mod.getMLGBucketChain().isFallingOhNo(mod) &&
-                mod.getMLGBucketChain().doneMLG() && !mod.getMLGBucketChain().isChorusFruiting()) {
+                mod.getMLGBucketChain().doneMLG(mod) && !mod.getMLGBucketChain().isChorusFruiting()) {
             if (_forceHit != null) {
                 attack(mod, _forceHit, true);
             }
@@ -188,7 +188,7 @@ public class KillAura {
 
     private void performFastestAttack(AltoClef mod) {
         if (!mod.getFoodChain().needsToEat() && !mod.getMLGBucketChain().isFallingOhNo(mod) &&
-                mod.getMLGBucketChain().doneMLG() && !mod.getMLGBucketChain().isChorusFruiting()) {
+                mod.getMLGBucketChain().doneMLG(mod) && !mod.getMLGBucketChain().isChorusFruiting()) {
             for (Entity entity : _targets) {
                 attack(mod, entity);
             }
@@ -227,7 +227,6 @@ public class KillAura {
         _shielding = true;
         mod.getInputControls().hold(Input.SNEAK);
         mod.getInputControls().hold(Input.CLICK_RIGHT);
-        mod.getClientBaritone().getPathingBehavior().cancelEverything();
         mod.getExtraBaritoneSettings().setInteractionPaused(true);
         if (!mod.getPlayer().isBlocking()) {
             ItemStack handItem = StorageHelper.getItemStackInSlot(PlayerSlot.getEquipSlot());

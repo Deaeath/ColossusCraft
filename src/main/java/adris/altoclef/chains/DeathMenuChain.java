@@ -53,4 +53,14 @@ public class DeathMenuChain extends TaskChain {
     public String getName() {
         return "Death Menu";
     }
+
+    @Override
+    public boolean isPassive() {
+        return true;
+    }
+
+    @Override
+    public boolean pausesBaritone() {
+        return true;
+    }
 }

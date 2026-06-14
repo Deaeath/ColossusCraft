@@ -5,12 +5,15 @@ import adris.altoclef.Debug;
 import adris.altoclef.tasks.AbstractDoToClosestObjectTask;
 import adris.altoclef.tasks.ResourceTask;
 import adris.altoclef.tasks.construction.DestroyBlockTask;
+import adris.altoclef.tasks.movement.GoToBiomeTask;
 import adris.altoclef.tasks.movement.PickupDroppedItemTask;
+import adris.altoclef.tasks.movement.SpiralSearchTask;
+import adris.altoclef.util.Dimension;
+import adris.altoclef.util.helpers.WorldHelper;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.MiningRequirement;
 import adris.altoclef.util.helpers.StorageHelper;
-import adris.altoclef.util.helpers.WorldHelper;
 import adris.altoclef.util.progresscheck.MovementProgressChecker;
 import adris.altoclef.util.slots.CursorSlot;
 import adris.altoclef.util.slots.PlayerSlot;
@@ -23,6 +26,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.DiggerItem;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
@@ -37,23 +42,41 @@ public class MineAndCollectTask extends ResourceTask {
 
     private final MineOrCollectTask _subtask;
 
-    public MineAndCollectTask(ItemTarget[] itemTargets, Block[] blocksToMine, MiningRequirement requirement) {
+    private static final java.util.Set<String> NETHER_BIOMES = java.util.Set.of(
+        "nether_wastes", "soul_sand_valley", "crimson_forest", "warped_forest", "basalt_deltas");
+    private static final java.util.Set<String> END_BIOMES = java.util.Set.of(
+        "the_end", "small_end_islands", "end_midlands", "end_highlands", "end_barrens");
+
+    private final ResourceKey<Biome> _preferredBiome;
+
+    public MineAndCollectTask(ItemTarget[] itemTargets, Block[] blocksToMine, MiningRequirement requirement, ResourceKey<Biome> preferredBiome) {
         super(itemTargets);
         _requirement = requirement;
         _blocksToMine = blocksToMine;
-        _subtask = new MineOrCollectTask(_blocksToMine, _itemTargets);
+        _preferredBiome = preferredBiome;
+        _subtask = new MineOrCollectTask(_blocksToMine, _itemTargets, preferredBiome);
+        if (preferredBiome != null) {
+            String path = preferredBiome.location().getPath();
+            if (NETHER_BIOMES.contains(path)) forceDimension(Dimension.NETHER);
+            else if (END_BIOMES.contains(path)) forceDimension(Dimension.END);
+            else forceDimension(Dimension.OVERWORLD);
+        }
+    }
+
+    public MineAndCollectTask(ItemTarget[] itemTargets, Block[] blocksToMine, MiningRequirement requirement) {
+        this(itemTargets, blocksToMine, requirement, null);
     }
 
     public MineAndCollectTask(ItemTarget[] blocksToMine, MiningRequirement requirement) {
-        this(blocksToMine, itemTargetToBlockList(blocksToMine), requirement);
+        this(blocksToMine, itemTargetToBlockList(blocksToMine), requirement, null);
     }
 
     public MineAndCollectTask(ItemTarget target, Block[] blocksToMine, MiningRequirement requirement) {
-        this(new ItemTarget[]{target}, blocksToMine, requirement);
+        this(new ItemTarget[]{target}, blocksToMine, requirement, null);
     }
 
     public MineAndCollectTask(Item item, int count, Block[] blocksToMine, MiningRequirement requirement) {
-        this(new ItemTarget(item, count), blocksToMine, requirement);
+        this(new ItemTarget[]{new ItemTarget(item, count)}, blocksToMine, requirement, null);
     }
 
     public static Block[] itemTargetToBlockList(ItemTarget[] targets) {
@@ -101,6 +124,14 @@ public class MineAndCollectTask extends ResourceTask {
             return getToCorrectDimensionTask(mod);
         }
 
+        // Wrong biome check — navigate to preferred biome when wandering with no ore found.
+        if (_preferredBiome != null && _subtask.wasWandering()
+                && !mod.getBlockTracker().anyFound(_blocksToMine)
+                && mod.getWorld() != null && mod.getPlayer() != null
+                && !mod.getWorld().getBiome(mod.getPlayer().blockPosition()).is(_preferredBiome)) {
+            return new GoToBiomeTask(_preferredBiome);
+        }
+
         return _subtask;
     }
 
@@ -146,15 +177,30 @@ public class MineAndCollectTask extends ResourceTask {
 
         private final Block[] _blocks;
         private final ItemTarget[] _targets;
+        private final ResourceKey<Biome> _preferredBiome;
         private final Set<BlockPos> _blacklist = new HashSet<>();
         private final MovementProgressChecker _progressChecker = new MovementProgressChecker();
         private final Task _pickupTask;
         private BlockPos _miningPos;
+        private SpiralSearchTask _spiralSearch;
 
-        public MineOrCollectTask(Block[] blocks, ItemTarget[] targets) {
+        public MineOrCollectTask(Block[] blocks, ItemTarget[] targets, ResourceKey<Biome> preferredBiome) {
             _blocks = blocks;
             _targets = targets;
+            _preferredBiome = preferredBiome;
             _pickupTask = new PickupDroppedItemTask(_targets, true);
+        }
+
+        @Override
+        protected Task getWanderTask(AltoClef mod) {
+            if (_spiralSearch == null) {
+                BlockPos origin = new BlockPos(
+                    (int) mod.getPlayer().getX(),
+                    (int) mod.getPlayer().getY(),
+                    (int) mod.getPlayer().getZ());
+                _spiralSearch = new SpiralSearchTask(origin, _preferredBiome);
+            }
+            return _spiralSearch;
         }
 
         @Override
@@ -224,6 +270,7 @@ public class MineAndCollectTask extends ResourceTask {
                     _progressChecker.reset();
                 }
                 _miningPos = newPos;
+                _spiralSearch = null; // reset so next search starts from the new location
                 return new DestroyBlockTask(_miningPos);
             }
             if (obj instanceof ItemEntity) {
@@ -254,6 +301,7 @@ public class MineAndCollectTask extends ResourceTask {
         protected void onStart(AltoClef mod) {
             _progressChecker.reset();
             _miningPos = null;
+            _spiralSearch = null; // reset spiral to current position each time mining starts
         }
 
         @Override

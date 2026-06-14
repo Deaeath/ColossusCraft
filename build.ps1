@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$ToolsVersion = '1.0.1'
+$ToolsVersion = '1.0.2'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Prism = Join-Path $env:APPDATA 'PrismLauncher'
 

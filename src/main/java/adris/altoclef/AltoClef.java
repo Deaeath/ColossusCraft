@@ -96,7 +96,7 @@ public class AltoClef {
     }
 
     public void runUserTask(Task task, Runnable onFinish) {
-        userTaskChain.runTask(this, task, onFinish);
+        userTaskChain.runTask(this, task, onFinish, true);
     }
 
     public void runUserTask(Task task, Runnable onFinish, boolean prioritizeOverMobDefense) {

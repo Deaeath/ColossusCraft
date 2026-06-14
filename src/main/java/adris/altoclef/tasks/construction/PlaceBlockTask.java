@@ -18,6 +18,12 @@ import net.minecraft.world.phys.Vec3;
 import java.util.Arrays;
 
 public class PlaceBlockTask extends Task {
+    private static final Item[] STRUCTURE_MATERIALS = new Item[]{
+            Items.DIRT, Items.COBBLESTONE, Items.NETHERRACK, Items.COBBLED_DEEPSLATE,
+            Items.STONE, Items.DEEPSLATE, Items.ANDESITE, Items.DIORITE, Items.GRANITE,
+            Items.TUFF, Items.CALCITE, Items.BASALT, Items.BLACKSTONE
+    };
+
     private final BlockPos target;
     private final Block[] toPlace;
     private final boolean useThrowaways;
@@ -36,11 +42,15 @@ public class PlaceBlockTask extends Task {
     }
 
     public static int getMaterialCount(AltoClef mod) {
-        return mod.getItemStorage().getItemCount(Items.DIRT, Items.COBBLESTONE, Items.NETHERRACK);
+        return mod.getItemStorage().getItemCount(STRUCTURE_MATERIALS);
+    }
+
+    public static Item[] getStructureMaterials() {
+        return STRUCTURE_MATERIALS;
     }
 
     public static Task getMaterialTask(int count) {
-        return new CollectItemTask(new ItemTarget(new Item[]{Items.DIRT, Items.COBBLESTONE, Items.NETHERRACK}, count));
+        return new CollectItemTask(new ItemTarget(STRUCTURE_MATERIALS, count));
     }
 
     @Override
@@ -53,7 +63,7 @@ public class PlaceBlockTask extends Task {
         if (isFinished(mod)) return null;
         Item[] items = Arrays.stream(toPlace).map(Block::asItem).filter(item -> item != Items.AIR).toArray(Item[]::new);
         if (items.length == 0 && autoCollectStructureBlocks) {
-            items = new Item[]{Items.DIRT, Items.COBBLESTONE, Items.NETHERRACK};
+            items = STRUCTURE_MATERIALS;
         }
         if (items.length != 0 && !mod.getSlotHandler().forceEquipItem(items)) {
             return new CollectItemTask(new ItemTarget(items, 1));

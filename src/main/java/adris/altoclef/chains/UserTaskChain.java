@@ -21,7 +21,19 @@ public class UserTaskChain extends SingleTaskChain {
     @Override
     protected void onTick(AltoClef mod) {
         if (!AltoClef.inGame()) return;
-        super.onTick(mod);
+        if (mainTask == null) return;
+        if (mainTask.isFinished(mod)) {
+            Debug.logInternal("[UserTaskChain] task finished: " + mainTask);
+            mainTask.stop(mod);
+            onTaskFinish(mod);
+            return;
+        }
+        // If the task was stopped (interrupted by a chain switch or disable), reset and resume.
+        if (mainTask.stopped()) {
+            Debug.logInternal("[UserTaskChain] task was stopped externally, resetting: " + mainTask);
+            mainTask.reset();
+        }
+        mainTask.tick(mod, this);
     }
 
     public void cancel(AltoClef mod) {
@@ -62,6 +74,9 @@ public class UserTaskChain extends SingleTaskChain {
     protected void onTaskFinish(AltoClef mod) {
         double seconds = taskStopwatch.time();
         Task oldTask = mainTask;
+        boolean wasFinished = oldTask != null && oldTask.isFinished(mod);
+        boolean wasStopped = oldTask != null && oldTask.stopped();
+        Debug.logMessage("[UserTaskChain] onTaskFinish: task=" + oldTask + " isFinished=" + wasFinished + " stopped=" + wasStopped + " elapsed=" + seconds + "s");
         mainTask = null;
         if (currentOnFinish != null) {
             currentOnFinish.run();

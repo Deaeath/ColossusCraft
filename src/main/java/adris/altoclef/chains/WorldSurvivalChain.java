@@ -40,6 +40,7 @@ public class WorldSurvivalChain extends SingleTaskChain {
 
     @Override
     protected void onTaskFinish(AltoClef mod) {
+        mainTask = null;
     }
 
     @Override
@@ -161,5 +162,15 @@ public class WorldSurvivalChain extends SingleTaskChain {
     @Override
     public boolean isActive() {
         return true;
+    }
+
+    @Override
+    public boolean isPassive() {
+        return true;
+    }
+
+    @Override
+    public boolean pausesBaritone() {
+        return mainTask != null;
     }
 }

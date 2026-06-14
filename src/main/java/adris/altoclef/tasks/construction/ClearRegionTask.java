@@ -20,18 +20,29 @@ public class ClearRegionTask extends Task {
     @Override
     protected Task onTick(AltoClef mod) {
         if (mod.getWorld() == null) return null;
+        BlockPos player = mod.getPlayer() == null ? null : mod.getPlayer().blockPosition();
+        BlockPos nearest = null;
+        double nearestDist = Double.MAX_VALUE;
         for (BlockPos scan : BlockPos.betweenClosed(a, b)) {
             BlockPos pos = scan.immutable();
             if (!mod.getWorld().getBlockState(pos).isAir()) {
-                return new DestroyBlockTask(pos);
+                double dist = player == null ? 0.0 : player.distSqr(pos);
+                if (nearest == null || dist < nearestDist) {
+                    nearest = pos;
+                    nearestDist = dist;
+                }
             }
         }
-        return null;
+        return nearest == null ? null : new DestroyBlockTask(nearest);
     }
 
     @Override
     public boolean isFinished(AltoClef mod) {
-        return false;
+        if (mod.getWorld() == null) return false;
+        for (BlockPos scan : BlockPos.betweenClosed(a, b)) {
+            if (!mod.getWorld().getBlockState(scan).isAir()) return false;
+        }
+        return true;
     }
 
     @Override
