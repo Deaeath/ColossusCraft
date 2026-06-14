@@ -36,10 +36,10 @@ public final class AncientCityHelper {
     private static final int FREEZE_RANGE = 24;
     private static final int SCULK_SCAN_RANGE = 10;
 
-    enum SneakMode { ON, PACKET, OFF }
+    enum SneakMode { AUTO, ON, PACKET, OFF }
 
     private static boolean initialized;
-    private static SneakMode sneakMode = SneakMode.PACKET;
+    private static SneakMode sneakMode = SneakMode.AUTO;
     private static boolean frozen = false;
     private static boolean serverSneaking = false;
     private static int sneakResendCooldown = 0;
@@ -59,6 +59,7 @@ public final class AncientCityHelper {
 
     public static LiteralArgumentBuilder<CommandSourceStack> sneakCommand() {
         return Commands.literal("sneak")
+                .then(Commands.literal("auto").executes(ctx -> setSneak(SneakMode.AUTO)))
                 .then(Commands.literal("on").executes(ctx -> setSneak(SneakMode.ON)))
                 .then(Commands.literal("packet").executes(ctx -> setSneak(SneakMode.PACKET)))
                 .then(Commands.literal("off").executes(ctx -> setSneak(SneakMode.OFF)))
@@ -137,6 +138,11 @@ public final class AncientCityHelper {
         }
 
         switch (sneakMode) {
+            case AUTO -> {
+                boolean inDeepDark = mc.level.getBiome(player.blockPosition()).is(Biomes.DEEP_DARK);
+                applyPacketSneak(inDeepDark);
+                // leave client sneak key alone in auto so player can sneak manually
+            }
             case ON -> { applyPacketSneak(true);  applyClientSneak(true); }
             case PACKET -> { applyPacketSneak(true);  applyClientSneak(false); }
             case OFF -> { applyPacketSneak(false); } // leave client sneak key alone so player can sneak manually
@@ -246,6 +252,7 @@ public final class AncientCityHelper {
         sneakMode = mode;
         if (mode == SneakMode.OFF) { applyPacketSneak(false); applyClientSneak(false); }
         say("Sneak: " + switch (mode) {
+            case AUTO   -> "AUTO (packet sneak in deep dark, off elsewhere)";
             case ON     -> "ON (real sneak — ledge protection active)";
             case PACKET -> "PACKET (server sees sneak, client moves freely)";
             case OFF    -> "OFF (sensors can trigger)";
