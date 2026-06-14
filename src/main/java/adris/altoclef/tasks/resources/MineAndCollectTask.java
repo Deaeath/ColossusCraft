@@ -302,22 +302,10 @@ public class MineAndCollectTask extends ResourceTask {
             // Lock the surface Y once at task start so the spiral stays on the surface
             // even after the bot digs underground to mine a block and resurfaces.
             if (mod.getPlayer() != null) {
-                // In the allthemodium mining dimension the "surface" from the heightmap
-                // is ~Y=253 (top of the stone layer), but allthemodium_slate_ore only
-                // generates at Y=129 in the deepslate layer. Walk at surface level so
-                // BlockTracker's downward scan covers that layer.
-                net.minecraft.resources.ResourceLocation miningBiome =
-                    net.minecraft.resources.ResourceLocation.tryParse("allthemodium:mining");
-                boolean isMiningDim = _preferredBiome != null
-                    && _preferredBiome.location().equals(miningBiome);
-                if (isMiningDim) {
-                    _surfaceY = 135; // just above deepslate layer; scan covers Y=129
-                } else {
-                    _surfaceY = mod.getWorld().getHeight(
-                        net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                        (int) mod.getPlayer().getX(),
-                        (int) mod.getPlayer().getZ());
-                }
+                _surfaceY = mod.getWorld().getHeight(
+                    net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                    (int) mod.getPlayer().getX(),
+                    (int) mod.getPlayer().getZ());
             }
         }
 
