@@ -302,10 +302,14 @@ public class MineAndCollectTask extends ResourceTask {
             // Lock the surface Y once at task start so the spiral stays on the surface
             // even after the bot digs underground to mine a block and resurfaces.
             if (mod.getPlayer() != null) {
-                _surfaceY = mod.getWorld().getHeight(
+                int playerY = (int) mod.getPlayer().getY();
+                int hmap = mod.getWorld().getHeight(
                     net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
                     (int) mod.getPlayer().getX(),
                     (int) mod.getPlayer().getZ());
+                // getHeight returns getMinBuildHeight() (-64) when the chunk hasn't loaded its
+                // heightmap yet. Fall back to player Y in that case so the spiral doesn't descend to bedrock.
+                _surfaceY = hmap > mod.getWorld().getMinBuildHeight() ? hmap : playerY;
             }
         }
 
