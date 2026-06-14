@@ -755,7 +755,6 @@ final class AltoClefUtilityCommands {
                                     IntegerArgumentType.getInteger(ctx, "knownOreY"),
                                     IntegerArgumentType.getInteger(ctx, "knownOreZ2"))))))))
             .then(Commands.literal("save").executes(ctx -> scanSave()))
-            .then(Commands.literal("list").executes(ctx -> scanList()))
             .then(Commands.literal("overlay")
                 .executes(ctx -> overlayToggle())
                 .then(Commands.literal("on").executes(ctx -> overlaySet(true)))
@@ -846,61 +845,6 @@ final class AltoClefUtilityCommands {
             OrePredictor.defaultFeatureIndex = idx;
             say("Calibrated! Feature index = " + idx
                 + ". Now use /cc scan predict " + worldSeed + " to pre-populate the cache.");
-        }
-        return 1;
-    }
-
-    private static int scanList() {
-        adris.altoclef.AltoClef mod = NeoForgeAltoClefMod.port().core();
-        if (mod == null) { say("Bot not loaded."); return 0; }
-        net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-        // Force a fresh scan right now so mined blocks/stale cache entries don't get written as ore.
-        mod.getBlockTracker().forceRefresh();
-        // Collect all tracked block types and get their known positions
-        java.util.List<net.minecraft.world.level.block.Block> trackedBlocks = new java.util.ArrayList<>();
-        for (String id : mod.getBlockTracker().getTrackedBlockIds()) {
-            net.minecraft.world.level.block.Block b = resolveBlock(id);
-            if (b != null) trackedBlocks.add(b);
-        }
-        java.util.List<net.minecraft.core.BlockPos> all = trackedBlocks.isEmpty()
-            ? java.util.List.of()
-            : mod.getBlockTracker().getKnownLocations(trackedBlocks.toArray(new net.minecraft.world.level.block.Block[0]));
-        if (!all.isEmpty()) {
-            java.util.Set<net.minecraft.world.level.block.Block> trackedSet = new java.util.HashSet<>(trackedBlocks);
-            all = all.stream()
-                .filter(p -> mod.getWorld() != null && trackedSet.contains(mod.getWorld().getBlockState(p).getBlock()))
-                .toList();
-        }
-        if (all.isEmpty()) {
-            say("No tracked ore in current scan range. Make sure /cc mine is running and you're near ore.");
-            return 1;
-        }
-        // Sort by distance from player
-        net.minecraft.world.phys.Vec3 pp = mc.player != null ? mc.player.position() : net.minecraft.world.phys.Vec3.ZERO;
-        all.sort(java.util.Comparator.comparingDouble(p -> p.getCenter().distanceToSqr(pp)));
-        // Write to file
-        java.nio.file.Path out = net.minecraft.client.Minecraft.getInstance().gameDirectory.toPath()
-            .resolve("colossuscraft").resolve("ore_locations.txt");
-        try {
-            java.nio.file.Files.createDirectories(out.getParent());
-            java.util.List<String> lines = new java.util.ArrayList<>();
-            lines.add("# Tracked ore positions at " + new java.util.Date());
-            if (mc.level != null) lines.add("# Dimension " + mc.level.dimension().location());
-            for (net.minecraft.core.BlockPos p : all) {
-                net.minecraft.world.level.block.Block b = mod.getWorld().getBlockState(p).getBlock();
-                String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).toString();
-                lines.add(id + " " + p.getX() + " " + p.getY() + " " + p.getZ());
-            }
-            java.nio.file.Files.write(out, lines);
-            say("Saved " + all.size() + " ore positions to " + out);
-            // Print nearest 5 in chat
-            say("Nearest " + Math.min(5, all.size()) + ":");
-            for (int i = 0; i < Math.min(5, all.size()); i++) {
-                net.minecraft.core.BlockPos p = all.get(i);
-                say("  " + p.getX() + " " + p.getY() + " " + p.getZ());
-            }
-        } catch (java.io.IOException e) {
-            say("Failed to write: " + e.getMessage());
         }
         return 1;
     }
