@@ -6,7 +6,7 @@ All features are accessed via `/colossuscraft` (alias `/cc`).
 
 ## Install
 
-Drop `colossuscraft-neoforge-1.21.1-1.0.2.jar` into your mods folder. That's it.
+Drop `colossuscraft-neoforge-1.21.1-1.0.5.jar` into your mods folder. That's it.
 
 ## Commands
 
@@ -42,7 +42,7 @@ Drop `colossuscraft-neoforge-1.21.1-1.0.2.jar` into your mods folder. That's it.
 /cc mine <block> [count]
 /cc mine <count> <block1> <block2> ...
 /cc mine <block> --biome <biome>
-/cc sneak on|off|status
+/cc sneak auto|on|packet|off|status
 ```
 
 ### PveGuard
@@ -109,6 +109,26 @@ Drop `colossuscraft-neoforge-1.21.1-1.0.2.jar` into your mods folder. That's it.
 
 Always-on: teleports home (`/home`) when health is critical, falling into void, drowning, or burning with no fire resistance.
 
+## Sneak modes
+
+| Mode | Behavior |
+|------|----------|
+| `auto` *(default)* | Packet sneak only while in the deep dark biome; off elsewhere so you can sneak normally |
+| `packet` | Always-on packet sneak — server sees you sneaking, client moves freely (old default) |
+| `on` | Real sneak — ledge protection active, movement slowed |
+| `off` | No sneak — sculk sensors can trigger |
+
+## Changelog
+
+### v1.0.5
+- **`/cc mine` fixed** — restored Baritone goal-pathing so the bot actually walks to and mines target blocks instead of walking past them
+- **Block name resolution** — `oak_log` now correctly resolves to `minecraft:oak_log` instead of matching modded blocks with the same path name
+- **Sneak `auto` mode** — packet sneak activates only in the deep dark; off by default everywhere else (replaces always-on `packet` as the default)
+- **Tool equip spam fixed** — `PlayerInteractionFixChain` throttled to 1×/sec (was every tick), stopping constant hotbar churn that reset block break progress
+- **KillAura** — no longer raises shield against passive mobs (sheep, cows, etc.)
+- **Spiral mining** — fixed descending to bedrock when chunk heightmap was unloaded
+- **NETHERITE tier** — added to `MiningRequirement` and `SatisfyMiningRequirementTask`
+
 ## Build from source
 
 ```powershell
@@ -119,4 +139,4 @@ Requires PrismLauncher with ATM10 installed and NeoForge moddev artifacts genera
 
 ## Revert
 
-Delete `colossuscraft-neoforge-1.21.1-1.0.2.jar` and re-enable your original `baritone-standalone-neoforge-1.11.2.jar`.
+Delete `colossuscraft-neoforge-1.21.1-1.0.5.jar` and re-enable your original `baritone-standalone-neoforge-1.11.2.jar`.
