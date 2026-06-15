@@ -7,6 +7,7 @@ import adris.altoclef.tasksystem.TaskRunner;
 import adris.altoclef.util.helpers.ItemHelper;
 import adris.altoclef.util.helpers.LookHelper;
 import adris.altoclef.util.helpers.StorageHelper;
+import adris.altoclef.util.slots.PlayerSlot;
 import adris.altoclef.util.slots.Slot;
 import adris.altoclef.util.time.TimerGame;
 import baritone.api.utils.Rotation;
@@ -51,6 +52,45 @@ public class PlayerInteractionFixChain extends TaskChain {
     public float getPriority(AltoClef mod) {
 
         if (!AltoClef.inGame()) return Float.NEGATIVE_INFINITY;
+
+        // Fortune-preserve: if we're breaking a non-ore block while a fortune tool is equipped,
+        // swap to the best non-fortune tool. This catches Baritone's own mining loop which
+        // bypasses DestroyBlockTask's equipBestTool entirely.
+        if (mod.getBehaviour().shouldPreserveFortune() && mod.getControllerExtras().isBreakingBlock()) {
+            net.minecraft.core.BlockPos breakPos = mod.getControllerExtras().getBreakingBlockPos();
+            if (breakPos != null && !StorageHelper.isOreBlock(mod, breakPos)) {
+                ItemStack equipped = StorageHelper.getItemStackInSlot(PlayerSlot.getEquipSlot());
+                if (StorageHelper.hasFortuneEnchantment(equipped)) {
+                    // Currently using fortune on a non-ore — find a non-fortune replacement.
+                    net.minecraft.world.level.block.state.BlockState bState =
+                            mod.getWorld() != null ? mod.getWorld().getBlockState(breakPos) : null;
+                    adris.altoclef.util.slots.Slot replacement = null;
+                    if (bState != null) {
+                        java.util.Optional<adris.altoclef.util.slots.Slot> best =
+                                StorageHelper.getBestToolSlot(mod, bState, false);
+                        if (best.isPresent() && !StorageHelper.hasFortuneEnchantment(
+                                StorageHelper.getItemStackInSlot(best.get()))) {
+                            replacement = best.get();
+                        }
+                    }
+                    // Fall back: any non-fortune digger in inventory
+                    if (replacement == null) {
+                        for (adris.altoclef.util.slots.Slot slot : adris.altoclef.util.slots.Slot.getCurrentScreenSlots()) {
+                            if (!slot.isSlotInPlayerInventory()) continue;
+                            ItemStack s = StorageHelper.getItemStackInSlot(slot);
+                            if (s.getItem() instanceof net.minecraft.world.item.DiggerItem
+                                    && !StorageHelper.hasFortuneEnchantment(s)) {
+                                replacement = slot;
+                                break;
+                            }
+                        }
+                    }
+                    if (replacement != null) {
+                        mod.getSlotHandler().forceEquipSlot(replacement);
+                    }
+                }
+            }
+        }
 
         // Unpress shift (it gets stuck for some reason???)
         if (mod.getInputControls().isHeldDown(Input.SNEAK)) {
