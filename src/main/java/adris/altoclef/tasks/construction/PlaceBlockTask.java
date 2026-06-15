@@ -6,6 +6,7 @@ import adris.altoclef.tasks.movement.GetToBlockTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.helpers.LookHelper;
+import adris.altoclef.util.time.TimerGame;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -29,6 +30,7 @@ public class PlaceBlockTask extends Task {
     private final boolean useThrowaways;
     private final boolean autoCollectStructureBlocks;
     private int useCooldown;
+    private final TimerGame _stuckTimer = new TimerGame(3);
 
     public PlaceBlockTask(BlockPos target, Block[] toPlace, boolean useThrowaways, boolean autoCollectStructureBlocks) {
         this.target = target;
@@ -56,6 +58,7 @@ public class PlaceBlockTask extends Task {
     @Override
     protected void onStart(AltoClef mod) {
         useCooldown = 0;
+        _stuckTimer.reset();
     }
 
     @Override
@@ -66,10 +69,16 @@ public class PlaceBlockTask extends Task {
             items = STRUCTURE_MATERIALS;
         }
         if (items.length != 0 && !mod.getSlotHandler().forceEquipItem(items)) {
+            _stuckTimer.reset();
             return new CollectItemTask(new ItemTarget(items, 1));
         }
         if (mod.getPlayer() != null && mod.getPlayer().blockPosition().distSqr(target) > 25) {
+            _stuckTimer.reset();
             return new GetToBlockTask(target);
+        }
+        if (_stuckTimer.elapsed()) {
+            // Can't reach target to place — give up so the caller can try elsewhere.
+            return null;
         }
         if (useCooldown-- <= 0 && mod.getController() != null && mod.getPlayer() != null) {
             useCooldown = 8;
