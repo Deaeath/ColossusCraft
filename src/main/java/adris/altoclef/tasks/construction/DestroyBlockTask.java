@@ -80,10 +80,17 @@ public class DestroyBlockTask extends Task {
             best = firstDiggerSlot();
         }
         if (best.isEmpty()) return;
+        if (best.get().equals(current)) return;
         ItemStack bestStack = StorageHelper.getItemStackInSlot(best.get());
         boolean faster = bestStack.getDestroySpeed(state) > currentStack.getDestroySpeed(state);
         boolean currentNotTool = !(currentStack.getItem() instanceof DiggerItem);
-        if (!best.get().equals(current) && (faster || currentNotTool)) {
+        // When preserve-fortune is on and this is a non-ore block, force switching away from
+        // a fortune tool even if it's faster — that's the whole point of the feature.
+        boolean fortuneSwapNeeded = mod.getBehaviour().shouldPreserveFortune()
+                && !StorageHelper.isOreBlock(mod, pos)
+                && StorageHelper.hasFortuneEnchantment(currentStack)
+                && !StorageHelper.hasFortuneEnchantment(bestStack);
+        if (faster || currentNotTool || fortuneSwapNeeded) {
             mod.getSlotHandler().forceEquipSlot(best.get());
             startedDestroying = false;
         }
