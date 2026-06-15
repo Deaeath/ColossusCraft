@@ -1,3 +1,39 @@
+## ColossusCraft v1.0.6
+
+Client automation mod for **All the Mods 10** (NeoForge 1.21.1).
+
+---
+
+### What's new in v1.0.6
+
+#### Mining reliability
+- **Random mining stops fixed** — progress checker now resets while the bot is in the approach phase (`customGoalProcess` active) or within 5 blocks of the target, so it no longer blacklists reachable ores mid-approach
+- **Far-ore preference fixed** — bot no longer abandons a nearby ore it's already mining to chase one further away; target switching is gated to active navigation only, never while standing still mining
+
+#### Combat
+- **Phantom kills** — PVEGuard now detects and attacks Phantoms correctly (extended to 20-block range; skips line-of-sight check that was failing due to overhead approach angle; falls back to `isGenerallyHostileToPlayer` when `getTarget()` is unset during circling)
+- **Entity blacklist decay** — entity unreachability is now tracked with a 3-strike counter that resets whenever the player moves closer; previously a single timeout permanently blacklisted a sheep/cow, causing `/cc food` to report 0 available entities in a field full of animals
+
+#### Survival / movement
+- **Partial-block unstuck** — `WorldSurvivalChain` detects when Baritone is navigating but the player hasn't moved for 3 seconds; breaks the adjacent blocking block and resumes (5-second cooldown)
+
+#### Crafting
+- **Correct recipe selection** — `StorageHelper.instantFillRecipeViaBook` now matches recipes by ingredient equivalence, not just output item; fixes ATM10 modpack recipes appearing first and producing wrong shapes
+- **Crafting loop fixed** — `CraftGenericWithRecipeBooksTask` detects when ingredients are exhausted and marks itself finished instead of looping forever staring at an empty crafting grid (was the root cause of "staring at crafting table" with bread)
+- **Grid interrupt fixed** — `CraftInTableTask` no longer checks for missing items while the crafting table is open (ingredients placed in grid don't appear in inventory count)
+- **Smoker placement** — sneaks while right-clicking the support block so interactive blocks (crafting tables, chests) don't intercept the placement click
+
+#### UI
+- **Chat while container open** — pressing T or / while any container screen is open now correctly opens the chat overlay via `ContainerScreenChatMixin`; you can now type `/cc stop` without closing the crafting table first
+
+#### New command
+- **`/cc fortune [on|off]`** — toggleable fortune-preserve mode
+  - **ON:** routes fortune-enchanted pickaxe exclusively to ore blocks (coal, iron, gold, diamond, emerald, lapis, redstone, copper); uses non-fortune tools on everything else (cobblestone, dirt, etc.)
+  - **OFF (default):** standard best-tool selection (no change from previous behavior)
+  - Toggle with no argument; explicit `on`/`off` also accepted
+
+---
+
 ## ColossusCraft v1.0.5
 
 Client automation mod for **All the Mods 10** (NeoForge 1.21.1).

@@ -6,13 +6,14 @@ All features are accessed via `/colossuscraft` (alias `/cc`).
 
 ## Install
 
-Drop `colossuscraft-neoforge-1.21.1-1.0.5.jar` into your mods folder. That's it.
+Drop `colossuscraft-neoforge-1.21.1-1.0.6.jar` into your mods folder. That's it.
 
 ## Commands
 
 ### Core bot
 
 ```
+/cc fortune [on|off]
 /cc on|off|status|stop|help|idle|coords|list|reload
 /cc get <item> [count]
 /cc goto <x> <y> <z>
@@ -119,6 +120,16 @@ Always-on: teleports home (`/home`) when health is critical, falling into void, 
 | `off` | No sneak — sculk sensors can trigger |
 
 ## Changelog
+
+### v1.0.6
+- **Mining fixed** — bot no longer stops randomly or paths to distant ores when closer ones exist; progress checker now respects approach phase
+- **Phantom detection** — PVEGuard now kills Phantoms (20-block range, overhead LoS bypass)
+- **Partial-block unstuck** — automatically breaks adjacent blocking blocks after 3s of no movement
+- **Crafting fixed** — correct recipe selected via ingredient-matching (fixes wrong modpack recipe in ATM10); stops looping when ingredients run out
+- **Smoker placement** — sneaks while placing smoker so crafting tables don't intercept the click
+- **Food entity scan fixed** — entity blacklist now decays (3 strikes + resets when player gets closer); was permanently blocking sheep/cows after one timeout
+- **Chat while container open** — pressing T or / now opens chat overlay even inside crafting tables, chests, etc.
+- **`/cc fortune [on|off]`** — toggle fortune-preserve mode: routes fortune pickaxe to ore blocks only, uses non-fortune tools on everything else
 
 ### v1.0.5
 - **`/cc mine` fixed** — restored Baritone goal-pathing so the bot actually walks to and mines target blocks instead of walking past them
