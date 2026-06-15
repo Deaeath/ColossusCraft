@@ -7,7 +7,6 @@ import adris.altoclef.util.helpers.LookHelper;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.slots.PlayerSlot;
 import adris.altoclef.util.slots.Slot;
-import baritone.api.utils.input.Input;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.DiggerItem;
@@ -47,7 +46,6 @@ public class DestroyBlockTask extends Task {
             }
             mod.getController().continueDestroyBlock(pos, face);
         }
-        mod.getInputControls().hold(Input.CLICK_LEFT);
         setDebugState("Destroy " + pos.toShortString());
         return null;
     }
@@ -97,7 +95,6 @@ public class DestroyBlockTask extends Task {
         if (mod.getController() != null) {
             mod.getController().stopDestroyBlock();
         }
-        mod.getInputControls().release(Input.CLICK_LEFT);
     }
 
     @Override
