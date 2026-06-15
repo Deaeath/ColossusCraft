@@ -39,7 +39,7 @@ public class DestroyBlockTask extends Task {
         // Check if block is in reach (line-of-sight + distance) using Baritone's RotationUtils.
         // This prevents mining through intervening blocks.
         var reach = LookHelper.getReach(pos);
-        if (reach.isPresent()) {
+        if (reach.isPresent() && !mod.getFoodChain().needsToEat()) {
             // Block is reachable — look at it and hold CLICK_LEFT only when actually looking at it.
             if (!LookHelper.isLookingAt(mod, pos)) {
                 LookHelper.lookAt(mod, reach.get());
