@@ -1,12 +1,12 @@
 package adris.altoclef.tasks.construction;
 
 import adris.altoclef.AltoClef;
-import adris.altoclef.tasks.movement.GetToBlockTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.helpers.LookHelper;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.slots.PlayerSlot;
 import adris.altoclef.util.slots.Slot;
+import baritone.api.pathing.goals.GoalNear;
 import baritone.api.utils.input.Input;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -28,27 +28,41 @@ public class DestroyBlockTask extends Task {
     @Override
     protected void onStart(AltoClef mod) {
         startedDestroying = false;
+        mod.getClientBaritone().getPathingBehavior().forceCancel();
     }
 
     @Override
     protected Task onTick(AltoClef mod) {
         BlockState state = mod.getWorld() == null ? null : mod.getWorld().getBlockState(pos);
         if (state != null && state.isAir()) return null;
-        if (mod.getPlayer() != null && mod.getPlayer().blockPosition().distSqr(pos) > 25) {
-            return new GetToBlockTask(pos);
-        }
-        if (state != null) equipBestTool(mod, state);
-        LookHelper.lookAt(mod, pos);
-        Direction face = getHitFace(mod);
-        mod.getInputControls().hold(Input.CLICK_LEFT);
-        if (mod.getController() != null) {
-            if (!startedDestroying) {
-                mod.getController().startDestroyBlock(pos, face);
-                startedDestroying = true;
+
+        // Check if block is in reach (line-of-sight + distance) using Baritone's RotationUtils.
+        // This prevents mining through intervening blocks.
+        var reach = LookHelper.getReach(pos);
+        if (reach.isPresent()) {
+            // Block is reachable — look at it and hold CLICK_LEFT only when actually looking at it.
+            if (!LookHelper.isLookingAt(mod, pos)) {
+                LookHelper.lookAt(mod, reach.get());
             }
-            mod.getController().continueDestroyBlock(pos, face);
+            if (LookHelper.isLookingAt(mod, pos)) {
+                if (state != null) equipBestTool(mod, state);
+                mod.getClientBaritone().getInputOverrideHandler().setInputForceState(Input.CLICK_LEFT, true);
+                if (!startedDestroying && mod.getController() != null) {
+                    mod.getController().startDestroyBlock(pos, hitFace(mod));
+                    startedDestroying = true;
+                }
+            }
+            setDebugState("Mining " + pos.toShortString());
+        } else {
+            // Not in reach — path adjacent to the block.
+            startedDestroying = false;
+            mod.getClientBaritone().getInputOverrideHandler().setInputForceState(Input.CLICK_LEFT, false);
+            if (!mod.getClientBaritone().getCustomGoalProcess().isActive()
+                    && !mod.getClientBaritone().getPathingBehavior().isPathing()) {
+                mod.getClientBaritone().getCustomGoalProcess().setGoalAndPath(new GoalNear(pos, 1));
+            }
+            setDebugState("Approach " + pos.toShortString());
         }
-        setDebugState("Destroy " + pos.toShortString());
         return null;
     }
 
@@ -69,6 +83,13 @@ public class DestroyBlockTask extends Task {
         }
     }
 
+    private Direction hitFace(AltoClef mod) {
+        if (mod.getPlayer() == null) return Direction.UP;
+        Vec3 eye = mod.getPlayer().getEyePosition();
+        Vec3 center = Vec3.atCenterOf(pos);
+        return Direction.getNearest(eye.x - center.x, eye.y - center.y, eye.z - center.z);
+    }
+
     private Optional<Slot> firstDiggerSlot() {
         for (Slot slot : Slot.getCurrentScreenSlots()) {
             if (!slot.isSlotInPlayerInventory()) continue;
@@ -79,13 +100,6 @@ public class DestroyBlockTask extends Task {
         return Optional.empty();
     }
 
-    private Direction getHitFace(AltoClef mod) {
-        if (mod.getPlayer() == null) return Direction.UP;
-        Vec3 eye = mod.getPlayer().getEyePosition();
-        Vec3 center = Vec3.atCenterOf(pos);
-        return Direction.getNearest(eye.x - center.x, eye.y - center.y, eye.z - center.z);
-    }
-
     @Override
     public boolean isFinished(AltoClef mod) {
         return mod.getWorld() != null && mod.getWorld().getBlockState(pos).isAir();
@@ -93,11 +107,12 @@ public class DestroyBlockTask extends Task {
 
     @Override
     protected void onStop(AltoClef mod, Task interruptTask) {
+        mod.getClientBaritone().getInputOverrideHandler().setInputForceState(Input.CLICK_LEFT, false);
+        mod.getClientBaritone().getCustomGoalProcess().onLostControl();
         mod.stopPathing();
         if (mod.getController() != null) {
             mod.getController().stopDestroyBlock();
         }
-        mod.getInputControls().release(Input.CLICK_LEFT);
     }
 
     @Override
