@@ -4,6 +4,7 @@ import adris.altoclef.Debug;
 import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.events.PlayerCollidedWithEntityEvent;
 import adris.altoclef.mixins.PersistentProjectileEntityAccessor;
+import adris.altoclef.trackers.blacklisting.EntityLocateBlacklist;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.baritone.CachedProjectile;
 import adris.altoclef.util.helpers.ProjectileHelper;
@@ -28,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Predicate;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
@@ -41,7 +41,7 @@ public class EntityTracker extends Tracker {
     private final List<CachedProjectile> projectiles = new ArrayList<>();
     private final Map<String, Player> playerMap = new HashMap<>();
     private final Map<String, Vec3> playerLastCoordinates = new HashMap<>();
-    private final Set<UUID> unreachableEntities = new HashSet<>();
+    private final EntityLocateBlacklist _entityBlacklist = new EntityLocateBlacklist();
     private final Map<Player, List<Entity>> collisionAccumulator = new HashMap<>();
     private final Map<Player, Set<Entity>> collisions = new HashMap<>();
 
@@ -222,11 +222,11 @@ public class EntityTracker extends Tracker {
     }
 
     public void requestEntityUnreachable(Entity entity) {
-        unreachableEntities.add(entity.getUUID());
+        _entityBlacklist.blackListItem(mod, entity, 3);
     }
 
     public boolean isEntityReachable(Entity entity) {
-        return !unreachableEntities.contains(entity.getUUID());
+        return !_entityBlacklist.unreachable(entity);
     }
 
     private List<Entity> matchingEntities(Class type) {
@@ -292,7 +292,7 @@ public class EntityTracker extends Tracker {
 
     @Override
     protected void reset() {
-        unreachableEntities.clear();
+        _entityBlacklist.clear();
         itemDropLocations.clear();
         entityMap.clear();
         closeEntities.clear();

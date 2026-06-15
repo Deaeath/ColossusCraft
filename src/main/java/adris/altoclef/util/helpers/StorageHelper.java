@@ -24,9 +24,14 @@ import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.network.protocol.game.ServerboundPlaceRecipePacket;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.AbstractFurnaceMenu;
 import net.minecraft.world.inventory.ContainerData;
+import net.minecraft.world.inventory.RecipeBookMenu;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.DiggerItem;
@@ -205,6 +210,59 @@ public final class StorageHelper {
         return Optional.empty();
     }
 
+    /** True if the block is an ore that benefits from Fortune (vanilla + common modded ore tags). */
+    public static boolean isOreBlock(AltoClef mod, net.minecraft.core.BlockPos pos) {
+        if (mod.getWorld() == null) return false;
+        BlockState state = mod.getWorld().getBlockState(pos);
+        return state.is(net.minecraft.tags.BlockTags.COAL_ORES)
+                || state.is(net.minecraft.tags.BlockTags.IRON_ORES)
+                || state.is(net.minecraft.tags.BlockTags.GOLD_ORES)
+                || state.is(net.minecraft.tags.BlockTags.DIAMOND_ORES)
+                || state.is(net.minecraft.tags.BlockTags.EMERALD_ORES)
+                || state.is(net.minecraft.tags.BlockTags.LAPIS_ORES)
+                || state.is(net.minecraft.tags.BlockTags.REDSTONE_ORES)
+                || state.is(net.minecraft.tags.BlockTags.COPPER_ORES);
+    }
+
+    public static boolean hasFortuneEnchantment(ItemStack stack) {
+        return stack.getEnchantments().keySet().stream()
+                .anyMatch(e -> e.is(net.minecraft.world.item.enchantment.Enchantments.FORTUNE));
+    }
+
+    /**
+     * Like getBestToolSlot but respects the preserve-fortune toggle.
+     * On ore blocks: prefers a fortune pickaxe (faster fortune > slower non-fortune > any correct tool).
+     * On non-ore blocks: prefers a non-fortune pickaxe to preserve fortune charges (falls back to
+     * fortune if that is the only correct tool available).
+     */
+    public static Optional<Slot> getBestToolSlot(AltoClef mod, BlockState state, boolean isOre) {
+        Slot bestFortune = null;
+        float bestFortuneSpeed = 0;
+        Slot bestNormal = null;
+        float bestNormalSpeed = 0;
+
+        for (Slot slot : Slot.getCurrentScreenSlots()) {
+            if (!slot.isSlotInPlayerInventory()) continue;
+            ItemStack stack = getItemStackInSlot(slot);
+            if (!(stack.getItem() instanceof DiggerItem)) continue;
+            if (!stack.isCorrectToolForDrops(state)) continue;
+            float speed = stack.getDestroySpeed(state);
+            if (hasFortuneEnchantment(stack)) {
+                if (speed > bestFortuneSpeed) { bestFortuneSpeed = speed; bestFortune = slot; }
+            } else {
+                if (speed > bestNormalSpeed) { bestNormalSpeed = speed; bestNormal = slot; }
+            }
+        }
+
+        if (isOre) {
+            // On ores: fortune > normal (fortune even if slightly slower is preferred).
+            return Optional.ofNullable(bestFortune != null ? bestFortune : bestNormal);
+        } else {
+            // On non-ores: normal > fortune (only fall back to fortune if no normal tool exists).
+            return Optional.ofNullable(bestNormal != null ? bestNormal : bestFortune);
+        }
+    }
+
     public static Optional<Slot> getBestToolSlot(AltoClef mod, BlockState state) {
         Slot best = null;
         float bestSpeed = 1.0f;
@@ -292,6 +350,54 @@ public final class StorageHelper {
     }
 
     public static void instantFillRecipeViaBook(AltoClef mod, CraftingRecipe recipe, Item outputItem, boolean craftAll) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null || Minecraft.getInstance().getConnection() == null) return;
+        if (!(player.containerMenu instanceof RecipeBookMenu<?, ?> menu)) return;
+
+        // Build list of non-empty AltoClef slot requirements from the recipe.
+        List<ItemTarget> required = new ArrayList<>();
+        for (int i = 0; i < recipe.getSlotCount(); i++) {
+            ItemTarget slot = recipe.getSlot(i);
+            if (slot != null && !slot.isEmpty()) required.add(slot);
+        }
+
+        // Find the MC RecipeHolder whose output matches outputItem AND whose ingredient set
+        // matches the AltoClef recipe's slots (port of upstream JankCraftingRecipeMapping logic).
+        RecipeHolder<?> match = null;
+        for (RecipeHolder<?> holder : Minecraft.getInstance().getConnection().getRecipeManager().getRecipes()) {
+            Recipe<?> mcRecipe = holder.value();
+            if (!(mcRecipe instanceof net.minecraft.world.item.crafting.CraftingRecipe)) continue;
+            ItemStack result = mcRecipe.getResultItem(player.registryAccess());
+            if (result.isEmpty() || result.getItem() != outputItem) continue;
+
+            List<ItemTarget> remaining = new ArrayList<>(required);
+            for (Ingredient ingredient : mcRecipe.getIngredients()) {
+                if (ingredient.isEmpty()) continue;
+                boolean found = false;
+                for (int i = 0; i < remaining.size(); i++) {
+                    ItemTarget check = remaining.get(i);
+                    for (ItemStack stack : ingredient.getItems()) {
+                        if (check.matches(stack.getItem())) {
+                            remaining.remove(i);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                }
+            }
+            if (remaining.isEmpty()) {
+                match = holder;
+                break;
+            }
+        }
+
+        if (match == null) {
+            Debug.logError("instantFillRecipeViaBook: could not find MC recipe for " + outputItem + " (AltoClef recipe=" + recipe + ")");
+            return;
+        }
+        Minecraft.getInstance().getConnection().getConnection()
+                .send(new ServerboundPlaceRecipePacket(menu.containerId, match, craftAll));
     }
 
     // Furnace/smoker/blast all extend AbstractFurnaceMenu; the open menu (if any) is whichever one.

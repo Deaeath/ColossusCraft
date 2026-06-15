@@ -67,7 +67,13 @@ public class DestroyBlockTask extends Task {
     }
 
     private void equipBestTool(AltoClef mod, BlockState state) {
-        Optional<Slot> best = StorageHelper.getBestToolSlot(mod, state);
+        Optional<Slot> best;
+        if (mod.getBehaviour().shouldPreserveFortune()) {
+            boolean isOre = StorageHelper.isOreBlock(mod, pos);
+            best = StorageHelper.getBestToolSlot(mod, state, isOre);
+        } else {
+            best = StorageHelper.getBestToolSlot(mod, state);
+        }
         Slot current = PlayerSlot.getEquipSlot();
         ItemStack currentStack = StorageHelper.getItemStackInSlot(current);
         if (best.isEmpty() && !(currentStack.getItem() instanceof DiggerItem)) {

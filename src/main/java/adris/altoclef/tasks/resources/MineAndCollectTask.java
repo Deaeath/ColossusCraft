@@ -242,7 +242,8 @@ public class MineAndCollectTask extends ResourceTask {
 
         @Override
         protected Task onTick(AltoClef mod) {
-            if (mod.getClientBaritone().getPathingBehavior().isPathing()) {
+            if (mod.getClientBaritone().getPathingBehavior().isPathing()
+                    || mod.getClientBaritone().getCustomGoalProcess().isActive()) {
                 _progressChecker.reset();
             }
             // DestroyBlockTask mines manually when within 5 blocks — player stands still intentionally.

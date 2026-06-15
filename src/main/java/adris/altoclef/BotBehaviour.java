@@ -96,11 +96,20 @@ public class BotBehaviour {
         Collections.addAll(current.protectedItems, items);
     }
 
+    public boolean shouldPreserveFortune() {
+        return current.preserveFortune;
+    }
+
+    public void setPreserveFortune(boolean value) {
+        current.preserveFortune = value;
+    }
+
     private static class State {
         private final List<Predicate<Entity>> excludeFromForceField = new ArrayList<>();
         private final Set<Item> protectedItems = new HashSet<>();
         private boolean forceFieldPlayers;
         private boolean escapeLava = true;
+        private boolean preserveFortune = false;
 
         private State copy() {
             State result = new State();
@@ -108,6 +117,7 @@ public class BotBehaviour {
             result.protectedItems.addAll(protectedItems);
             result.forceFieldPlayers = forceFieldPlayers;
             result.escapeLava = escapeLava;
+            result.preserveFortune = preserveFortune;
             return result;
         }
     }

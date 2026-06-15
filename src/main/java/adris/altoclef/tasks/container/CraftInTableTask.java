@@ -40,7 +40,10 @@ public class CraftInTableTask extends ResourceTask {
 
     @Override
     protected Task onResourceTick(AltoClef mod) {
-        if (collect) {
+        // Only collect missing materials while the crafting table is closed.
+        // Once it's open the ingredients are placed into the grid and no longer
+        // appear in the inventory count — checking here would interrupt crafting.
+        if (collect && !adris.altoclef.util.helpers.StorageHelper.isBigCraftingOpen()) {
             Task missing = collectMissingItemsTask(mod);
             if (missing != null) return missing;
         }

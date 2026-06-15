@@ -8,7 +8,8 @@
     "PersistentProjectileEntityAccessor",
     "ClientBlockBreakAccessor",
     "ClientBlockBreakMixin",
-    "PlayerCollidesWithEntityMixin"
+    "PlayerCollidesWithEntityMixin",
+    "ContainerScreenChatMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -7,6 +7,7 @@ import adris.altoclef.commands.CustomCommand;
 import adris.altoclef.commands.DepositCommand;
 import adris.altoclef.commands.EquipCommand;
 import adris.altoclef.commands.FoodCommand;
+import adris.altoclef.commands.FortuneCommand;
 import adris.altoclef.commands.FollowCommand;
 import adris.altoclef.commands.GamerCommand;
 import adris.altoclef.commands.GetCommand;
@@ -60,7 +61,8 @@ public class AltoClefCommands {
                 new KillCommand(),
                 new TestCommand(),
                 new SetGammaCommand(),
-                new StopCommand()
+                new StopCommand(),
+                new FortuneCommand()
         );
     }
 }

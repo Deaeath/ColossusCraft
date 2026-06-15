@@ -24,6 +24,7 @@ import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.SmokingRecipe;
 import net.minecraft.world.level.block.Blocks;
+import baritone.api.utils.input.Input;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -111,8 +112,11 @@ public class SmeltInSmokerTask extends ResourceTask {
             useCooldown = 8;
             BlockPos support = placeAt.below();
             LookHelper.lookAt(mod, support);
+            // Sneak while placing so interactive blocks (e.g. crafting table) don't intercept the click.
+            mod.getInputControls().hold(Input.SNEAK);
             mod.getController().useItemOn(mod.getPlayer(), InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(support), Direction.UP, support, false));
+            mod.getInputControls().release(Input.SNEAK);
             setDebugState("Place smoker");
         }
         return null;

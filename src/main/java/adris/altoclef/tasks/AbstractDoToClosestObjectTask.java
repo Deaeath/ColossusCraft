@@ -86,14 +86,18 @@ public abstract class AbstractDoToClosestObjectTask<T> extends Task {
                         _currentlyPursuing = newClosest;
                         maybeReAttempt.updateDistance(maybeClosestDistance);
                     }
-                } else if (currentHeuristic < Double.POSITIVE_INFINITY) {
-                    // Only switch to an untried target while Baritone is actively path-following,
-                    // and only if it's meaningfully closer (< 1/4 distance-squared = half the distance).
-                    // Prevents jittery target switching for blocks that are only marginally nearer.
-                    double newDistSqr = getPos(mod, newClosest).distanceToSqr(mod.getPlayer().position());
-                    if (newDistSqr < closestDistanceSqr / 4) {
-                        setDebugState("Trying new pursuit");
-                        _currentlyPursuing = newClosest;
+                } else {
+                    // Only switch while actively navigating (Baritone path-following OR
+                    // customGoalProcess approach). Never switch while standing still (e.g. mining
+                    // in-place), or the progress checker fires before the bot starts moving.
+                    boolean navigating = currentHeuristic < Double.POSITIVE_INFINITY
+                            || mod.getClientBaritone().getCustomGoalProcess().isActive();
+                    if (navigating) {
+                        double newDistSqr = getPos(mod, newClosest).distanceToSqr(mod.getPlayer().position());
+                        if (newDistSqr < closestDistanceSqr / 4) {
+                            setDebugState("Trying new pursuit");
+                            _currentlyPursuing = newClosest;
+                        }
                     }
                 }
             } else {
@@ -147,3 +151,4 @@ public abstract class AbstractDoToClosestObjectTask<T> extends Task {
         }
     }
 }
+

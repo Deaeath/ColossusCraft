@@ -37,6 +37,7 @@ import net.minecraft.world.entity.monster.Pillager;
 import net.minecraft.world.entity.monster.Skeleton;
 import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.monster.Slime;
+import net.minecraft.world.entity.monster.Phantom;
 import net.minecraft.world.entity.monster.Stray;
 import net.minecraft.world.entity.monster.Witch;
 import net.minecraft.world.entity.monster.WitherSkeleton;
@@ -300,16 +301,23 @@ public class MobDefenseChain extends TaskChain {
                             _closeAnnoyingEntities.remove(hostile);
                             continue;
                         }
-                        if (!EntityHelper.isActivelyTargetingPlayer(mod, hostile)) {
+                        // Phantoms attack from above and may not have getTarget() set during
+                        // their circling phase — accept them if they're generally hostile too.
+                        boolean targeting = EntityHelper.isActivelyTargetingPlayer(mod, hostile)
+                                || (hostile instanceof Phantom && EntityHelper.isGenerallyHostileToPlayer(mod, hostile));
+                        if (!targeting) {
                             _closeAnnoyingEntities.remove(hostile);
                             continue;
                         }
                         int annoyingRange = hostile instanceof Shulker ? 28 :
+                                hostile instanceof Phantom ? 20 :
                                 (hostile instanceof Skeleton || hostile instanceof Witch || hostile
                                         instanceof Pillager || hostile instanceof Piglin || hostile instanceof Stray) ? 15 : 8;
                         boolean isClose = hostile.closerThan(mod.getPlayer(), annoyingRange);
 
-                        if (isClose && !(hostile instanceof Shulker)) {
+                        // Skip seesPlayer for Phantoms — they attack from open air above and a
+                        // ceiling block would incorrectly block the LoS check.
+                        if (isClose && !(hostile instanceof Shulker) && !(hostile instanceof Phantom)) {
                             isClose = LookHelper.seesPlayer(hostile, mod.getPlayer(), annoyingRange);
                         }
 
