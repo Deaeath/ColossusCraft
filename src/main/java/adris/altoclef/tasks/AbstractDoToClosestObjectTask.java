@@ -87,10 +87,14 @@ public abstract class AbstractDoToClosestObjectTask<T> extends Task {
                         maybeReAttempt.updateDistance(maybeClosestDistance);
                     }
                 } else if (currentHeuristic < Double.POSITIVE_INFINITY) {
-                    // Only switch to an untried target while Baritone is actively path-following.
-                    // When not pathing (e.g. close-range mining), stay on current target until done.
-                    setDebugState("Trying new pursuit");
-                    _currentlyPursuing = newClosest;
+                    // Only switch to an untried target while Baritone is actively path-following,
+                    // and only if it's meaningfully closer (< 1/4 distance-squared = half the distance).
+                    // Prevents jittery target switching for blocks that are only marginally nearer.
+                    double newDistSqr = getPos(mod, newClosest).distanceToSqr(mod.getPlayer().position());
+                    if (newDistSqr < closestDistanceSqr / 4) {
+                        setDebugState("Trying new pursuit");
+                        _currentlyPursuing = newClosest;
+                    }
                 }
             } else {
                 setDebugState("Waiting for move task");
