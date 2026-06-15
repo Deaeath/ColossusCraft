@@ -111,7 +111,11 @@ public final class NeoForgeAltoClefMod {
                 .then(Commands.literal("ai")
                         .then(Commands.argument("message", StringArgumentType.greedyString())
                                 .executes(ctx -> AiChat.query(StringArgumentType.getString(ctx, "message")))))
-                .then(AncientCityHelper.sneakCommand());
+                .then(AncientCityHelper.sneakCommand())
+                .then(Commands.literal("fortune")
+                        .executes(ctx -> coreExec("fortune"))
+                        .then(Commands.argument("toggle", StringArgumentType.word())
+                                .executes(ctx -> coreExec("fortune " + StringArgumentType.getString(ctx, "toggle")))));
         event.getDispatcher().register(extra);
     }
 
